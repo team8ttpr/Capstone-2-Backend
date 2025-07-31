@@ -1,32 +1,24 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
 
-const Posts = db.define("posts", {
+const Follows = db.define("follows", {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
   },
 
-  title: {
-    type: DataTypes.STRING,
-  },
-
-  descriptions: {
-    type: DataTypes.TEXT,
-  },
-
-  user_id: {
+  following_user_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
   },
-
-  status: {
-    type: DataTypes.STRING,
+  follows_user_id: {
+    type: DataTypes.INTEGER,
   },
-
+  follows_user_id: {
+    type: DataTypes.INTEGER,
+  },
   created_at: {
     type: DataTypes.INTEGER,
   },
 });
 
-module.exports = Posts;
+module.exports = Follows;
