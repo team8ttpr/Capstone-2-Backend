@@ -24,6 +24,17 @@ const authenticateJWT = (req, res, next) => {
   });
 };
 
+router.get("/migrate", async (req, res) => {
+  try {
+    const { User } = require("../database");
+    await User.sync({ alter: true }); // This will add missing columns
+    res.json({ message: "Database synced successfully" });
+  } catch (error) {
+    console.error("Migration error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Auth0 authentication route
 router.post("/auth0", async (req, res) => {
   try {
