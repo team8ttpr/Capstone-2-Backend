@@ -5,4 +5,4 @@ const app = require ("../app");
 
 router.use("/test-db", testDbRouter);
 
-module.exports = {router, app};
+module.exports = app;
