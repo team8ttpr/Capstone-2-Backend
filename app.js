@@ -16,12 +16,17 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 // body parser middleware
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: FRONTEND_URL,
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: [
+    "http://localhost:3000", // Development
+    "https://capstone-2-frontend-one.vercel.app", // Production frontend
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+};
+
+app.use(cors(corsOptions));
 
 // cookie parser middleware
 app.use(cookieParser());
