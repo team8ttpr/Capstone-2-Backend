@@ -88,6 +88,7 @@ router.post("/auth0", async (req, res) => {
 
     res.send({
       message: "Auth0 authentication successful",
+      token: token,
       user: {
         id: user.id,
         username: user.username,
@@ -169,7 +170,6 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const user = await User.findOne({ where: { username } });
-    user.checkPassword(password);
     if (!user) {
       return res.status(401).send({ error: "Invalid credentials" });
     }
@@ -200,6 +200,7 @@ router.post("/login", async (req, res) => {
 
     res.send({
       message: "Login successful",
+      token: token,
       user: { id: user.id, username: user.username },
     });
   } catch (error) {
