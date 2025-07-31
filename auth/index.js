@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { User } = require("../database");
+const spotifyRouter = require("./spotify");
 
 const router = express.Router();
 
@@ -230,5 +231,7 @@ router.get("/me", (req, res) => {
     res.send({ user: user });
   });
 });
+
+router.use("/spotify", spotifyRouter);
 
 module.exports = { router, authenticateJWT };
