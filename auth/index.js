@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const { User } = require("../database");
+const spotifyRouter = require("./spotify");
 
 const router = express.Router();
 
@@ -22,6 +23,17 @@ const authenticateJWT = (req, res, next) => {
     next();
   });
 };
+
+router.get("/migrate", async (req, res) => {
+  try {
+    const { User } = require("../database");
+    await User.sync({ alter: true }); // This will add missing columns
+    res.json({ message: "Database synced successfully" });
+  } catch (error) {
+    console.error("Migration error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Auth0 authentication route
 router.post("/auth0", async (req, res) => {
@@ -88,6 +100,7 @@ router.post("/auth0", async (req, res) => {
 
     res.send({
       message: "Auth0 authentication successful",
+      token: token,
       user: {
         id: user.id,
         username: user.username,
@@ -169,7 +182,6 @@ router.post("/login", async (req, res) => {
 
     // Find user
     const user = await User.findOne({ where: { username } });
-    user.checkPassword(password);
     if (!user) {
       return res.status(401).send({ error: "Invalid credentials" });
     }
@@ -200,6 +212,7 @@ router.post("/login", async (req, res) => {
 
     res.send({
       message: "Login successful",
+      token: token,
       user: { id: user.id, username: user.username },
     });
   } catch (error) {
@@ -229,5 +242,7 @@ router.get("/me", (req, res) => {
     res.send({ user: user });
   });
 });
+
+router.use("/spotify", spotifyRouter);
 
 module.exports = { router, authenticateJWT };

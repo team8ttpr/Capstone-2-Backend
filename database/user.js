@@ -28,6 +28,32 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  // Add Spotify fields
+  spotifyId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+  },
+  spotifyAccessToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  spotifyRefreshToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  spotifyTokenExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  spotifyDisplayName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  spotifyProfileImage: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 });
 
 // Instance method to check password
@@ -41,6 +67,13 @@ User.prototype.checkPassword = function (password) {
 // Class method to hash password
 User.hashPassword = function (password) {
   return bcrypt.hashSync(password, 10);
+};
+
+// Method to check if Spotify token is valid
+User.prototype.isSpotifyTokenValid = function () {
+  return this.spotifyAccessToken && 
+         this.spotifyTokenExpiresAt && 
+         new Date() < this.spotifyTokenExpiresAt;
 };
 
 module.exports = User;
