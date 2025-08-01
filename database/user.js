@@ -89,9 +89,11 @@ User.hashPassword = function (password) {
 };
 
 User.prototype.isSpotifyTokenValid = function () {
-  return this.spotifyAccessToken && 
-         this.spotifyTokenExpiresAt && 
-         new Date() < this.spotifyTokenExpiresAt;
+  return (
+    this.spotifyAccessToken &&
+    this.spotifyTokenExpiresAt &&
+    new Date() < this.spotifyTokenExpiresAt
+  );
 };
 
 module.exports = User;
