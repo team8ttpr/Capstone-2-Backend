@@ -30,7 +30,7 @@ const authenticateJWT = (req, res, next) => {
 };
 
 // Generate Spotify authorization URL
-router.get("/auth-url", authenticateJWT, (req, res) => {
+router.get("/auth-url", (req, res) => {
   const scopes = [
     "user-read-private",
     "user-read-email",
@@ -40,16 +40,19 @@ router.get("/auth-url", authenticateJWT, (req, res) => {
     "playlist-read-collaborative"
   ].join(" ");
 
+  // generate a random state string for CSRF protection
+  const state = Math.random().toString(36).substring(2, 15);
+
   const params = new URLSearchParams({
     response_type: "code",
     client_id: SPOTIFY_CLIENT_ID,
     scope: scopes,
     redirect_uri: `${FRONTEND_URL}/callback/spotify`,
-    state: req.user.id.toString(),
+    state: state,
   });
 
   const authUrl = `https://accounts.spotify.com/authorize?${params}`;
-  res.json({ authUrl });
+  res.json({ authUrl, state }); // Return state so frontend can store/verify it
 });
 
 // Handle Spotify callback
