@@ -1,60 +1,60 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
-const bcrypt = require("bcrypt");
 
 const Post = db.define("post", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
   title: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
     validate: {
-      len: [3, 20],
+      len: [1, 200],
     },
   },
-  email: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-    validate: {
-      isEmail: true,
-    },
-  },
-  auth0Id: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-  },
-  passwordHash: {
-    type: DataTypes.STRING,
+  content: {
+    type: DataTypes.TEXT,
     allowNull: true,
   },
-  role: {
-    type: DataTypes.ENUM("User", "Admin"),
-    defaultValue: "User",
+  userId: {
+    type: DataTypes.INTEGER,
     allowNull: false,
+    field: 'user_id', // Map to snake_case
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
+  spotifyTrackId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'spotify_track_id'
+  },
+  spotifyTrackName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'spotify_track_name'
+  },
+  spotifyArtistName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'spotify_artist_name'
+  },
+  likesCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: 'likes_count'
+  },
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: 'is_public'
+  }
+}, {
+  tableName: 'posts',
+  underscored: true // Ensures snake_case column names
 });
 
-// Instance method to check password
-User.prototype.checkPassword = function (password) {
-  if (!this.passwordHash) {
-    return false; // Auth0 users don't have passwords
-  }
-  return bcrypt.compareSync(password, this.passwordHash);
-};
-
-// Class method to hash password
-User.hashPassword = function (password) {
-  return bcrypt.hashSync(password, 10);
-};
-
-// Method to check if Spotify token is valid
-User.prototype.isSpotifyTokenValid = function () {
-  return (
-    this.spotifyAccessToken &&
-    this.spotifyTokenExpiresAt &&
-    new Date() < this.spotifyTokenExpiresAt
-  );
-};
-
-module.exports = User;
+module.exports = Post;
