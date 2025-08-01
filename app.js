@@ -9,6 +9,8 @@ const apiRouter = require("./api");
 const { router: authRouter } = require("./auth");
 const { db } = require("./database");
 const cors = require("cors");
+const dashboard = require("./api/dashboard");
+const social = require("./api/social");
 
 const PORT = process.env.PORT || 8080;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
