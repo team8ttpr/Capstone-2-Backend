@@ -28,6 +28,19 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  role: {
+    type: DataTypes.ENUM("User", "Admin"),
+    defaultValue: "User",
+    allowNull: false,
+  },
+  top_tracks: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  top_artist: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
   // Add Spotify fields
   spotifyId: {
     type: DataTypes.STRING,
@@ -71,9 +84,11 @@ User.hashPassword = function (password) {
 
 // Method to check if Spotify token is valid
 User.prototype.isSpotifyTokenValid = function () {
-  return this.spotifyAccessToken && 
-         this.spotifyTokenExpiresAt && 
-         new Date() < this.spotifyTokenExpiresAt;
+  return (
+    this.spotifyAccessToken &&
+    this.spotifyTokenExpiresAt &&
+    new Date() < this.spotifyTokenExpiresAt
+  );
 };
 
 module.exports = User;
