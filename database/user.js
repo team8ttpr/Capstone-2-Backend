@@ -28,7 +28,6 @@ const User = db.define("user", {
     type: DataTypes.STRING,
     allowNull: true,
   },
-  // Add Spotify fields
   spotifyId: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -56,20 +55,17 @@ const User = db.define("user", {
   },
 });
 
-// Instance method to check password
 User.prototype.checkPassword = function (password) {
   if (!this.passwordHash) {
-    return false; // Auth0 users don't have passwords
+    return false;
   }
   return bcrypt.compareSync(password, this.passwordHash);
 };
 
-// Class method to hash password
 User.hashPassword = function (password) {
   return bcrypt.hashSync(password, 10);
 };
 
-// Method to check if Spotify token is valid
 User.prototype.isSpotifyTokenValid = function () {
   return this.spotifyAccessToken && 
          this.spotifyTokenExpiresAt && 
