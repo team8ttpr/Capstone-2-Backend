@@ -1,11 +1,30 @@
 const express = require("express");
 const router = express.Router();
-const { Posts } = require("../database"); // Correct import
+const { Posts, User } = require("../database"); // Correct import
 const { authenticateJWT } = require("../auth");
 
 // Get all posts (public)
+router.get("/", async (req, res) => {
+  try {
+    const posts = await Posts.findAll({
+      where: { isPublic: true },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["username", "id"],
+        },
+      ],
+    });
+    res.json(posts);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
 // Get all posts by the logged-in user
-router.get("/", authenticateJWT, async (req, res) => {
+router.get("/mine", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
     const posts = await Posts.findAll({
