@@ -35,6 +35,12 @@ const User = db.define(
       allowNull: true, // Allow null for Spotify-only users
       field: "password_hash",
     },
+    avatarURL: {
+      type: DataTypes.STRING,
+      defaultValue: "https://static.thenounproject.com/png/5100711-200.png",
+      allowNull: false,
+      required: false,
+    },
     spotifyId: {
       type: DataTypes.STRING,
       allowNull: true,
