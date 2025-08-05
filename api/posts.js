@@ -41,4 +41,32 @@ router.post("/", authenticateJWT, async (req, res) => {
   }
 });
 
+//POST api/posts/draft --- Create a draft endpoint (first time when user click on save as draft)
+router.post("/draft", authenticateJWT, async (req, res) => {
+  try {
+    const { title, description, id, type } = req.body;
+
+    if (!title || title.trim() === '') {
+      return res.status(400).json({ error: "Title is required" }); //tittle is required even for drafts
+    }
+
+    const postData = {
+      title: title.trim(),
+      description: description || null,
+      status: 'draft',
+      userId: req.user.id,
+    };
+    // handle single Spotify item if user included (optional)
+    if (id && type) {
+      postData.spotifyId = id;
+      postData.spotifyType = type;
+    }
+    const newDraft = await Posts.create(postData);
+    res.status(201).json(newDraft);
+  } catch (error) {
+    console.error("Error creating draft:", error);
+    res.status(500).json({ error: "Failed to create draft" });
+  }
+});
+
 module.exports = router;
