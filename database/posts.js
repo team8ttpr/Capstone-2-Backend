@@ -1,7 +1,7 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
 
-const Post = db.define("posts", {
+const Posts = db.define("posts", {
   title: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -61,5 +61,5 @@ const Post = db.define("posts", {
   underscored: true,
 });
 
-module.exports = Post;
+module.exports = Posts;
 

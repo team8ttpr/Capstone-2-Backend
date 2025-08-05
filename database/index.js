@@ -1,15 +1,15 @@
 const db = require("./db");
 const User = require("./user");
-const Post = require("./posts");
+const Posts = require("./posts");
 const Follows = require("./follows");
 
 // Set up associations
-User.hasMany(Post, { 
+User.hasMany(Posts, { 
   foreignKey: 'user_id', // Use snake_case for foreign key
   as: 'posts' 
 });
 
-Post.belongsTo(User, { 
+Posts.belongsTo(User, { 
   foreignKey: 'user_id', // Use snake_case for foreign key
   as: 'author' 
 });
@@ -32,6 +32,6 @@ User.belongsToMany(User, {
 module.exports = {
   db,
   User,
-  Post,
+  Posts,
   Follows,
 };
