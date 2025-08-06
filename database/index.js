@@ -4,12 +4,12 @@ const Posts = require("./posts");
 const Follows = require("./follows");
 
 // Set up associations
-User.hasMany(Posts, {
+User.hasMany(Post, {
   foreignKey: "user_id", // Use snake_case for foreign key
   as: "posts",
 });
 
-Posts.belongsTo(User, {
+Post.belongsTo(User, {
   foreignKey: "user_id", // Use snake_case for foreign key
   as: "author",
 });
