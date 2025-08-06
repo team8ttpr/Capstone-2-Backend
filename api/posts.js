@@ -26,7 +26,37 @@ router.get("/", async (req, res) => {
 router.get("/test", (req, res) => {
   res.send("posts test route OK");
 });
+// Get post if status === draft
+router.get("/drafts", authenticateJWT, async (req, res) => {
+  try {
+    const drafts = await Post.findAll({
+      where: {
+        userId: req.user.id,
+        status: "draft",
+      },
+    });
+    res.json(drafts);
+  } catch (err) {
+    console.error("Error fetching draft posts:", err);
+    res.status(500).json({ error: "Failed to fetch drafts" });
+  }
+});
 
+// Get post if status === published
+router.get("/published", authenticateJWT, async (req, res) => {
+  try {
+    const published = await Post.findAll({
+      where: {
+        userId: req.user.id,
+        status: "published",
+      },
+    });
+    res.json(published);
+  } catch (err) {
+    console.error("Error fetching published posts:", err);
+    res.status(500).json({ error: "Failed to fetch published posts" });
+  }
+});
 // Get all posts by the logged-in user
 router.get("/mine", authenticateJWT, async (req, res) => {
   try {
@@ -45,7 +75,7 @@ router.get("/mine", authenticateJWT, async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const postId = req.params.id;
-    const post = await Posts.findByPk(postId, {
+    const post = await Post.findByPk(postId, {
       include: [
         {
           model: User,
@@ -75,7 +105,7 @@ router.post("/", authenticateJWT, async (req, res) => {
       return res.status(400).json({ error: "Title is required" });
     }
 
-    const newPost = await Posts.create({
+    const newPost = await Post.create({
       title,
       description,
       status,
@@ -109,7 +139,7 @@ router.post("/draft", authenticateJWT, async (req, res) => {
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
     }
-    const newDraft = await Posts.create(postData);
+    const newDraft = await Post.create(postData);
     res.status(201).json(newDraft);
   } catch (error) {
     console.error("Error creating draft:", error);
@@ -132,7 +162,7 @@ router.patch("/draft/:id", authenticateJWT, async (req, res) => {
     if (spotifyId !== undefined) updateData.spotifyId = spotifyId || null;
     if (spotifyType !== undefined) updateData.spotifyType = spotifyType || null;
 
-    const [updatedRowsCount] = await Posts.update(updateData, {
+    const [updatedRowsCount] = await Post.update(updateData, {
       where: {
         id: parseInt(req.params.id),
         userId: req.user.id,
@@ -159,7 +189,7 @@ router.patch("/:id", authenticateJWT, async (req, res) => {
     const postId = req.params.id;
     const { title, description, content, status } = req.body;
 
-    const post = await Posts.findByPk(postId);
+    const post = await Post.findByPk(postId);
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
@@ -183,7 +213,7 @@ router.patch("/:id", authenticateJWT, async (req, res) => {
 router.delete("/:id", authenticateJWT, async (req, res) => {
   try {
     const postId = req.params.id;
-    const post = await Posts.findByPk(postId);
+    const post = await Post.findByPk(postId);
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
