@@ -1,15 +1,13 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
 
-const Post = db.define(
-  "posts",
-  {
-    title: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      validate: {
-        len: [1, 200],
-      },
+
+const Posts = db.define("posts", {
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [1, 200], 
     },
     description: {
       type: DataTypes.TEXT,
@@ -59,10 +57,30 @@ const Post = db.define(
       field: "is_public",
     },
   },
-  {
-    tableName: "posts",
-    underscored: true,
-  }
-);
+  spotifyId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: "spotify_id",
+  },
 
-module.exports = Post;
+  spotifyType: {
+    type: DataTypes.ENUM("track", "album", "playlist","artist"),
+    allowNull: true,
+    field: "spotify_type",
+  },
+  likesCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: "likes_count",
+  },
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: "is_public",
+  },
+}, {
+  tableName: "posts",
+  underscored: true,
+});
+
+module.exports = Posts;

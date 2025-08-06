@@ -376,7 +376,7 @@ router.get("/top-tracks", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
     const accessToken = await getValidSpotifyToken(user);
-    const timeRange = req.query.time_range || "short_term";
+    const timeRange = req.query.time_range || "long_term";
 
     const response = await axios.get("https://api.spotify.com/v1/me/top/tracks", {
       headers: {
@@ -395,6 +395,136 @@ router.get("/top-tracks", authenticateJWT, async (req, res) => {
     }
     console.error("Error getting top tracks:", error.message);
     res.status(500).json({ error: "Failed to get top tracks" });
+  }
+});
+
+//route for top artist
+router.get("/top-artists", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    const accessToken = await getValidSpotifyToken(user);
+    
+    const timeRanges = ["short_term", "medium_term", "long_term"];
+    let bestResult = null;
+    
+    for (const timeRange of timeRanges) {
+      try {
+        const response = await axios.get("https://api.spotify.com/v1/me/top/artists", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            limit: 20,
+            time_range: timeRange,
+          },
+        });
+        
+        if (response.data.items.length > 0) {
+          return res.json({
+            ...response.data,
+            time_range_used: timeRange
+          });
+        }
+        
+        if (!bestResult) {
+          bestResult = {
+            ...response.data,
+            time_range_used: timeRange
+          };
+        }
+      } catch (error) {
+        console.error(`Error getting top artists for ${timeRange}:`, error.message);
+      }
+    }
+    
+    res.json(bestResult || {
+      items: [],
+      total: 0,
+      message: "No listening history found for artists."
+    });
+    
+  } catch (error) {
+    if (error.message === "Spotify not connected") {
+      return res.status(401).json({ error: "Spotify not connected" });
+    }
+    console.error("Error getting top artists:", error.message);
+    res.status(500).json({ error: "Failed to get top artists" });
+  }
+});
+
+// Get user's playlists
+router.get("/playlists", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    const accessToken = await getValidSpotifyToken(user);
+
+    const response = await axios.get("https://api.spotify.com/v1/me/playlists", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        limit: 50, // Get up to 50 playlists
+        offset: 0,
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    if (error.message === "Spotify not connected") {
+      return res.status(401).json({ error: "Spotify not connected" });
+    }
+    console.error("Error getting playlists:", error.message);
+    res.status(500).json({ error: "Failed to get playlists" });
+  }
+});
+
+// Get route individual playlist
+router.get("/playlists/:id", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    const accessToken = await getValidSpotifyToken(user);
+    const playlistId = req.params.id;
+
+    const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    if (error.message === "Spotify not connected") {
+      return res.status(401).json({ error: "Spotify not connected" });
+    }
+    console.error("Error getting playlist details:", error.message);
+    res.status(500).json({ error: "Failed to get playlist details" });
+  }
+});
+
+// Get route for playlist tracks
+router.get("/playlists/:id/tracks", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    const accessToken = await getValidSpotifyToken(user);
+    const playlistId = req.params.id;
+
+    const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        limit: 100, // Get up to 100 tracks
+        offset: 0,
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    if (error.message === "Spotify not connected") {
+      return res.status(401).json({ error: "Spotify not connected" });
+    }
+    console.error("Error getting playlist tracks:", error.message);
+    res.status(500).json({ error: "Failed to get playlist tracks" });
   }
 });
 
