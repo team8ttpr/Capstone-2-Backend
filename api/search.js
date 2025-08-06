@@ -46,7 +46,7 @@ const formatTracks = (tracks) => {
   if (!tracks || !tracks.items) return [];
   
   return tracks.items
-    .filter(track => track && track.id && track.name) 
+    .filter(track => track && track.id && track.name)
     .map(track => ({
       id: track.id,
       name: track.name,
@@ -58,9 +58,11 @@ const formatTracks = (tracks) => {
       spotify_url: track.external_urls?.spotify || null,
       preview_url: track.preview_url || null,
       duration_ms: track.duration_ms || 0,
+      album: track.album?.name || "Unknown Album",
     }));
 };
 
+// Helper function to safely format artists
 const formatArtists = (artists) => {
   if (!artists || !artists.items) return [];
   
@@ -70,7 +72,7 @@ const formatArtists = (artists) => {
       id: artist.id,
       name: artist.name,
       type: "artist",
-      author: null, 
+      author: null,
       image: artist.images?.[0]?.url || null,
       spotify_url: artist.external_urls?.spotify || null,
       followers: artist.followers?.total || 0,
@@ -78,11 +80,33 @@ const formatArtists = (artists) => {
     }));
 };
 
+// Helper function to safely format albums
+const formatAlbums = (albums) => {
+  if (!albums || !albums.items) return [];
+  
+  return albums.items
+    .filter(album => album && album.id && album.name)
+    .map(album => ({
+      id: album.id,
+      name: album.name,
+      type: "album",
+      author: album.artists && album.artists.length > 0 
+        ? album.artists.map(artist => artist?.name || "Unknown Artist").join(", ")
+        : "Unknown Artist",
+      image: album.images?.[0]?.url || null,
+      spotify_url: album.external_urls?.spotify || null,
+      release_date: album.release_date || null,
+      total_tracks: album.total_tracks || 0,
+      album_type: album.album_type || "album",
+    }));
+};
+
+// Helper function to safely format playlists
 const formatPlaylists = (playlists) => {
   if (!playlists || !playlists.items) return [];
   
   return playlists.items
-    .filter(playlist => playlist && playlist.id && playlist.name) 
+    .filter(playlist => playlist && playlist.id && playlist.name)
     .map(playlist => ({
       id: playlist.id,
       name: playlist.name,
@@ -111,38 +135,37 @@ router.get("/", async (req, res) => {
     // Get access token
     const accessToken = await getSpotifyClientToken();
 
-    // Search Spotify API
+    // Search Spotify API - now including albums
     const searchResponse = await axios.get("https://api.spotify.com/v1/search", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       params: {
         q: q.trim(),
-        type: "track,artist,playlist",
-        limit: 5, 
-        market: "US", 
+        type: "track,artist,album,playlist", // Added album
+        limit: 10, // Increased limit for better results
+        market: "US",
       },
     });
 
     const searchData = searchResponse.data || {};
     
+    // Format each type with null checks
     const formattedTracks = formatTracks(searchData.tracks);
     const formattedArtists = formatArtists(searchData.artists);
+    const formattedAlbums = formatAlbums(searchData.albums);
     const formattedPlaylists = formatPlaylists(searchData.playlists);
-
-    const allResults = [
-      ...formattedTracks,
-      ...formattedArtists,
-      ...formattedPlaylists
-    ];
 
     res.json({
       query: q,
-      total_results: allResults.length,
-      results: allResults,
-      breakdown: {
+      tracks: formattedTracks,
+      artists: formattedArtists,
+      albums: formattedAlbums,
+      playlists: formattedPlaylists,
+      total_results: {
         tracks: formattedTracks.length,
         artists: formattedArtists.length,
+        albums: formattedAlbums.length,
         playlists: formattedPlaylists.length,
       }
     });
