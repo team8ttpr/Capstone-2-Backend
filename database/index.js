@@ -1,6 +1,6 @@
 const db = require("./db");
 const User = require("./user");
-const Posts = require("./posts");
+const Post = require("./posts");
 const Follows = require("./follows");
 
 // Set up associations
@@ -32,6 +32,6 @@ User.belongsToMany(User, {
 module.exports = {
   db,
   User,
-  Posts,
+  Post,
   Follows,
 };

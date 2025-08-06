@@ -16,7 +16,7 @@ const User = db.define(
     },
     email: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for Spotify-only users
+      allowNull: true,
       unique: true,
       validate: {
         isEmail: {
@@ -32,14 +32,13 @@ const User = db.define(
     },
     passwordHash: {
       type: DataTypes.STRING,
-      allowNull: true, // Allow null for Spotify-only users
+      allowNull: true,
       field: "password_hash",
     },
     avatarURL: {
       type: DataTypes.STRING,
       defaultValue: "https://static.thenounproject.com/png/5100711-200.png",
       allowNull: false,
-      required: false,
     },
     spotifyId: {
       type: DataTypes.STRING,
@@ -77,65 +76,17 @@ const User = db.define(
     tableName: "users",
     underscored: true,
     validate: {
-      // Custom validator: user must have either password or spotify connection
       mustHaveAuthMethod() {
         if (!this.passwordHash && !this.spotifyId && !this.auth0Id) {
           throw new Error("User must have at least one authentication method");
         }
       },
     },
-  },
-  auth0Id: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-    field: 'auth0_id'
-  },
-  passwordHash: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'password_hash'
-  },
-  spotifyId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-    field: 'spotify_id'
-  },
-  spotifyAccessToken: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'spotify_access_token'
-  },
-  spotifyRefreshToken: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'spotify_refresh_token'
-  },
-  spotifyTokenExpiresAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'spotify_token_expires_at'
-  },
-  spotifyDisplayName: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'spotify_display_name'
-  },
-  spotifyProfileImage: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'spotify_profile_image'
-  },
-  {
-  tableName: 'users',
-  underscored: true // Ensures snake_case column names
-});
+  }
+);
 
 User.prototype.checkPassword = function (password) {
-  if (!this.passwordHash) {
-    return false;
-  }
+  if (!this.passwordHash) return false;
   return bcrypt.compareSync(password, this.passwordHash);
 };
 

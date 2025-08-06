@@ -1,5 +1,5 @@
 const db = require("./db");
-const { User, Posts } = require("./index");
+const { User, Post } = require("./index");
 
 const seed = async () => {
   try {
@@ -16,7 +16,7 @@ const seed = async () => {
 
     console.log(`👤 Created ${users.length} users`);
 
-    const posts = await Posts.bulkCreate([
+    const posts = await Post.bulkCreate([
       // Posts for admin
       {
         title: "Admin Post 1",
