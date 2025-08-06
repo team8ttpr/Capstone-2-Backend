@@ -41,4 +41,67 @@ router.post("/", authenticateJWT, async (req, res) => {
   }
 });
 
+//POST api/posts/draft --- Create a draft endpoint (first time when user click on save as draft)
+router.post("/draft", authenticateJWT, async (req, res) => {
+  try {
+    const { title, description, spotifyId, spotifyType } = req.body;
+
+    if (!title || title.trim() === '') {
+      return res.status(400).json({ error: "Title is required" }); //title is required even for drafts
+    }
+
+    const postData = {
+      title: title.trim(),
+      description: description || null,
+      status: 'draft',
+      userId: req.user.id,
+    };
+    // handle single Spotify item if user included (optional)
+    if (spotifyId && spotifyType) {
+      postData.spotifyId = spotifyId;
+      postData.spotifyType = spotifyType;
+    }
+    const newDraft = await Posts.create(postData);
+    res.status(201).json(newDraft);
+  } catch (error) {
+    console.error("Error creating draft:", error);
+    res.status(500).json({ error: "Failed to create draft" });
+  }
+});
+
+// PATCH api/posts/draft/:id ------ Update a draft endpoint
+router.patch("/draft/:id", authenticateJWT, async (req, res) => {
+  try {
+    const { title, description, spotifyId, spotifyType } = req.body;
+    
+    if (title !== undefined && !title.trim()) {
+      return res.status(400).json({ error: "Title cannot be empty" });
+    }
+
+    const updateData = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description || null;
+    if (spotifyId !== undefined) updateData.spotifyId = spotifyId || null;
+    if (spotifyType !== undefined) updateData.spotifyType = spotifyType || null;
+
+    const [updatedRowsCount] = await Posts.update(updateData, {
+      where: { 
+        id: parseInt(req.params.id),
+        userId: req.user.id,
+        status: 'draft'
+      }
+    });
+
+    if (updatedRowsCount === 0) {
+      return res.status(404).json({ error: "Draft post not found or unauthorized" });
+    }
+
+    res.json({ message: "Draft updated successfully" });
+
+  } catch (error) {
+    console.error("Error updating draft:", error);
+    res.status(500).json({ error: "Failed to update draft" });
+  }
+});
+
 module.exports = router;

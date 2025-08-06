@@ -31,20 +31,16 @@ const Posts = db.define("posts", {
       key: "id",
     },
   },
-  spotifyTrackId: {
+  spotifyId: {
     type: DataTypes.STRING,
     allowNull: true,
-    field: "spotify_track_id",
+    field: "spotify_id",
   },
-  spotifyTrackName: {
-    type: DataTypes.STRING,
+
+  spotifyType: {
+    type: DataTypes.ENUM("track", "album", "playlist","artist"),
     allowNull: true,
-    field: "spotify_track_name",
-  },
-  spotifyArtistName: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: "spotify_artist_name",
+    field: "spotify_type",
   },
   likesCount: {
     type: DataTypes.INTEGER,
