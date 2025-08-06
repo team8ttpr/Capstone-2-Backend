@@ -59,10 +59,30 @@ const Post = db.define(
       field: "is_public",
     },
   },
-  {
-    tableName: "posts",
-    underscored: true,
-  }
-);
+  spotifyId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: "spotify_id",
+  },
+
+  spotifyType: {
+    type: DataTypes.ENUM("track", "album", "playlist","artist"),
+    allowNull: true,
+    field: "spotify_type",
+  },
+  likesCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    field: "likes_count",
+  },
+  isPublic: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: "is_public",
+  },
+}, {
+  tableName: "posts",
+  underscored: true,
+});
 
 module.exports = Post;
