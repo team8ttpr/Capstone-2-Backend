@@ -15,7 +15,6 @@ const getSpotifyClientToken = async () => {
       return spotifyAccessToken;
     }
 
-    // Get new token
     const response = await axios.post(
       "https://accounts.spotify.com/api/token",
       new URLSearchParams({
@@ -41,7 +40,6 @@ const getSpotifyClientToken = async () => {
   }
 };
 
-// Helper function to safely format tracks
 const formatTracks = (tracks) => {
   if (!tracks || !tracks.items) return [];
   
@@ -62,7 +60,6 @@ const formatTracks = (tracks) => {
     }));
 };
 
-// Helper function to safely format artists
 const formatArtists = (artists) => {
   if (!artists || !artists.items) return [];
   
@@ -80,7 +77,6 @@ const formatArtists = (artists) => {
     }));
 };
 
-// Helper function to safely format albums
 const formatAlbums = (albums) => {
   if (!albums || !albums.items) return [];
   
@@ -101,7 +97,6 @@ const formatAlbums = (albums) => {
     }));
 };
 
-// Helper function to safely format playlists
 const formatPlaylists = (playlists) => {
   if (!playlists || !playlists.items) return [];
   
@@ -119,7 +114,6 @@ const formatPlaylists = (playlists) => {
     }));
 };
 
-// Search endpoint
 router.get("/", async (req, res) => {
   try {
     const { q } = req.query;
@@ -132,25 +126,22 @@ router.get("/", async (req, res) => {
       return res.status(500).json({ error: "Spotify credentials not configured" });
     }
 
-    // Get access token
     const accessToken = await getSpotifyClientToken();
 
-    // Search Spotify API - now including albums
     const searchResponse = await axios.get("https://api.spotify.com/v1/search", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       params: {
         q: q.trim(),
-        type: "track,artist,album,playlist", // Added album
-        limit: 10, // Increased limit for better results
+        type: "track,artist,album,playlist", 
+        limit: 10, 
         market: "US",
       },
     });
 
     const searchData = searchResponse.data || {};
     
-    // Format each type with null checks
     const formattedTracks = formatTracks(searchData.tracks);
     const formattedArtists = formatArtists(searchData.artists);
     const formattedAlbums = formatAlbums(searchData.albums);
