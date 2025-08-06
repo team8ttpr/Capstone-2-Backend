@@ -1,14 +1,9 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
 
-const Posts = db.define(
-  "post",
+const Post = db.define(
+  "posts",
   {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -70,4 +65,4 @@ const Posts = db.define(
   }
 );
 
-module.exports = Posts;
+module.exports = Post;

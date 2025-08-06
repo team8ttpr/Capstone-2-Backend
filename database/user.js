@@ -84,8 +84,53 @@ const User = db.define(
         }
       },
     },
-  }
-);
+  },
+  auth0Id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    field: 'auth0_id'
+  },
+  passwordHash: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'password_hash'
+  },
+  spotifyId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    field: 'spotify_id'
+  },
+  spotifyAccessToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'spotify_access_token'
+  },
+  spotifyRefreshToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'spotify_refresh_token'
+  },
+  spotifyTokenExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'spotify_token_expires_at'
+  },
+  spotifyDisplayName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'spotify_display_name'
+  },
+  spotifyProfileImage: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'spotify_profile_image'
+  },
+  {
+  tableName: 'users',
+  underscored: true // Ensures snake_case column names
+});
 
 User.prototype.checkPassword = function (password) {
   if (!this.passwordHash) {
