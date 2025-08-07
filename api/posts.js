@@ -195,6 +195,12 @@ router.patch("/:id", authenticateJWT, async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
+    if (post.status === "published") {
+      return res
+        .status(403)
+        .json({ error: "Cannot edit already published post" });
+    }
+
     post.title = title || post.title;
     post.description = description || post.description;
     post.content = content || post.content;
