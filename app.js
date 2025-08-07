@@ -42,6 +42,8 @@ const runApp = async () => {
   try {
     await db.sync();
     console.log("✅ Connected to the database");
+    await db.sync({ alter: true });
+    console.log("✅ Database synced successfully");
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
     });

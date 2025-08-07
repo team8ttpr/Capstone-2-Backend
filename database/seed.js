@@ -1,228 +1,178 @@
-const db = require("./db");
-const { User, Post } = require("./index");
+const { db, User, Posts, Follows } = require("./index");
 
-const seed = async () => {
+const seedDatabase = async () => {
   try {
-    db.logging = false;
-    await db.sync({ force: true });
+    // Sync database
+    console.log("🔄 Syncing database...");
+    await db.sync({ force: false, alter: true });
+    
+    console.log("🌱 Starting database seed...");
 
+    // Clear existing data in correct order (to handle foreign key constraints)
+    await Posts.destroy({ where: {} });
+    await Follows.destroy({ where: {} });
+    await User.destroy({ where: {} });
+
+    // Create test users
     const users = await User.bulkCreate([
-      { id: 1, username: "admin", passwordHash: User.hashPassword("admin123") },
-      { id: 2, username: "user1", passwordHash: User.hashPassword("user111") },
-      { id: 3, username: "user2", passwordHash: User.hashPassword("user222") },
-      { id: 4, username: "user3", passwordHash: User.hashPassword("user333") },
-      { id: 5, username: "user4", passwordHash: User.hashPassword("user444") },
+      {
+        username: "musiclover92",
+        email: "sarah@example.com",
+        passwordHash: User.hashPassword("password123"),
+        firstName: "Sarah",
+        lastName: "Johnson",
+        bio: "Love discovering new music and sharing my favorites! Always on the hunt for new artists and hidden gems.",
+        spotifyDisplayName: "Sarah Johnson",
+        profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+        avatarURL: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face"
+      },
+      {
+        username: "vinylcollector",
+        email: "mike@example.com",
+        passwordHash: User.hashPassword("password123"),
+        firstName: "Mike",
+        lastName: "Chen",
+        bio: "Vinyl enthusiast and classic rock aficionado. Always hunting for rare records and sharing the stories behind the music.",
+        spotifyDisplayName: "Mike Chen",
+        profileImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+        avatarURL: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
+      },
+      {
+        username: "jazzcat",
+        email: "alex@example.com",
+        passwordHash: User.hashPassword("password123"),
+        firstName: "Alex",
+        lastName: "Rivera",
+        bio: "Jazz musician and music producer. Sharing smooth vibes and hidden gems from the world of jazz and beyond.",
+        spotifyDisplayName: "Alex Rivera",
+        profileImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+        avatarURL: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
+      },
+      {
+        username: "indierocks",
+        email: "taylor@example.com",
+        passwordHash: User.hashPassword("password123"),
+        firstName: "Taylor",
+        lastName: "Swift",
+        bio: "Indie rock enthusiast and concert photographer. Living for live music experiences and discovering the next big thing.",
+        spotifyDisplayName: "Taylor Swift",
+        profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+        avatarURL: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face"
+      }
+    ], {
+      returning: true
+    });
+
+    console.log(`✅ Created ${users.length} users`);
+
+    // Create test posts
+    const posts = await Posts.bulkCreate([
+      {
+        title: "Just discovered this amazing track!",
+        description: "This song has been on repeat all day. The production quality is insane and the vocals are so smooth. Definitely adding this to my workout playlist. What do you think about this artist?",
+        userId: users[0].id,
+        status: 'published',
+        isPublic: true,
+        spotifyId: "4iV5W9uYEdYUVa79Axb7Rh",
+        spotifyType: "track",
+        likesCount: 42
+      },
+      {
+        title: "Throwback vibes with this classic album",
+        description: "Sometimes you just need to go back to the classics. This album shaped my entire music taste growing up. Every single track is a masterpiece. Perfect for those late night study sessions or just chilling with friends.",
+        userId: users[1].id,
+        status: 'published',
+        isPublic: true,
+        spotifyId: "1DFixLWuPkv3KT3TnV35m3",
+        spotifyType: "album",
+        likesCount: 127
+      },
+      {
+        title: "Smooth jazz for your Sunday morning",
+        description: "Found this incredible jazz playlist that's perfect for lazy Sunday mornings. The saxophone solos are absolutely divine. Great for coffee and contemplation.",
+        userId: users[2].id,
+        status: 'published',
+        isPublic: true,
+        spotifyId: "37i9dQZF1DX0SM0LYsmbMT",
+        spotifyType: "playlist",
+        likesCount: 89
+      },
+      {
+        title: "This indie band is going places",
+        description: "Stumbled upon this artist at a local venue last night and I'm blown away. Their sound is so unique and fresh. They're definitely going to be huge soon. Check them out before they blow up!",
+        userId: users[3].id,
+        status: 'published',
+        isPublic: true,
+        spotifyId: "3TVXtAsR1Inumwj472S9r4",
+        spotifyType: "artist",
+        likesCount: 156
+      },
+      {
+        title: "Perfect study playlist",
+        description: "Curated the perfect instrumental playlist for deep focus sessions. No lyrics to distract, just pure musical flow to keep you in the zone.",
+        userId: users[0].id,
+        status: 'published',
+        isPublic: true,
+        spotifyId: "37i9dQZF1DWWQRwui0ExPn",
+        spotifyType: "playlist",
+        likesCount: 73
+      },
+      {
+        title: "Draft post for later",
+        description: "Working on this post about my favorite underground hip-hop artists...",
+        userId: users[1].id,
+        status: 'draft',
+        isPublic: false,
+        likesCount: 0
+      }
+    ], {
+      returning: true
+    });
+
+    console.log(`✅ Created ${posts.length} posts`);
+
+    // Create some follow relationships
+    const follows = await Follows.bulkCreate([
+      { followerId: users[0].id, followingId: users[1].id },
+      { followerId: users[0].id, followingId: users[2].id },
+      { followerId: users[1].id, followingId: users[0].id },
+      { followerId: users[1].id, followingId: users[3].id },
+      { followerId: users[2].id, followingId: users[0].id },
+      { followerId: users[2].id, followingId: users[3].id },
+      { followerId: users[3].id, followingId: users[1].id },
+      { followerId: users[3].id, followingId: users[2].id }
     ]);
 
-    console.log(`👤 Created ${users.length} users`);
+    console.log(`✅ Created ${follows.length} follow relationships`);
 
-    const posts = await Post.bulkCreate([
-      // User 1
-      {
-        title: "Admin Vibes",
-        description: "Admin is testing things.",
-        status: "draft",
-        userId: 1,
-        spotifyId: "37i9dQZF1DXcBWIGoYBM5M",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M",
-      },
-      {
-        title: "Lo-Fi Work Flow",
-        description: "Perfect background music.",
-        status: "published",
-        userId: 1,
-        spotifyId: "37i9dQZF1DXdPec7aLTmlC",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DXdPec7aLTmlC",
-      },
-      {
-        title: "Rock & Roll!",
-        description: "Classic rock hits I love.",
-        status: "draft",
-        userId: 1,
-        spotifyId: "37i9dQZF1DWXRqgorJj26U",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DWXRqgorJj26U",
-      },
-      {
-        title: "Motivation Boost",
-        description: "Hype music to crush the day.",
-        status: "published",
-        userId: 1,
-        spotifyId: "7qiZfU4dY1lWllzX7mPBI3",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/7qiZfU4dY1lWllzX7mPBI3",
-      },
-      {
-        title: "Calm Mornings",
-        description: "Wake up gently.",
-        status: "published",
-        userId: 1,
-        spotifyId: "3KkXRkHbMCARz0aVfEt68P",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/3KkXRkHbMCARz0aVfEt68P",
-      },
+    console.log("🎉 Database seeded successfully!");
+    console.log("\n📊 Seed Summary:");
+    console.log(`   👥 Users: ${users.length}`);
+    console.log(`   📝 Posts: ${posts.filter(p => p.status === 'published').length} published, ${posts.filter(p => p.status === 'draft').length} drafts`);
+    console.log(`   🔗 Follows: ${follows.length}`);
+    
+    console.log("\n🔐 Test Login Credentials:");
+    users.forEach(user => {
+      console.log(`   Username: ${user.username} | Password: password123`);
+    });
 
-      // User 2
-      {
-        title: "Late Night Drive",
-        description: "Vibes for cruising.",
-        status: "published",
-        userId: 2,
-        spotifyId: "6habFhsOp2NvshLv26DqMb",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/6habFhsOp2NvshLv26DqMb",
-      },
-      {
-        title: "Hip-Hop Energy",
-        description: "Stay pumped.",
-        status: "published",
-        userId: 2,
-        spotifyId: "37i9dQZF1DX0XUsuxWHRQd",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DX0XUsuxWHRQd",
-      },
-      {
-        title: "The Weekend Wave",
-        description: "Weekend vibes incoming.",
-        status: "published",
-        userId: 2,
-        spotifyId: "3U4isOIWM3VvDubwSI3y7a",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/3U4isOIWM3VvDubwSI3y7a",
-      },
-      {
-        title: "Pop Culture Hits",
-        description: "All the trending pop songs.",
-        status: "published",
-        userId: 2,
-        spotifyId: "37i9dQZF1DXcF6B6QPhFDv",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcF6B6QPhFDv",
-      },
-      {
-        title: "Mellow Mood",
-        description: "For rainy evenings.",
-        status: "published",
-        userId: 2,
-        spotifyId: "2Fxmhks0bxGSBdJ92vM42m",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/2Fxmhks0bxGSBdJ92vM42m",
-      },
-
-      // User 3
-      {
-        title: "Throwback Thursday",
-        description: "Hits from the 2000s.",
-        status: "published",
-        userId: 3,
-        spotifyId: "37i9dQZF1DWYmmr74INQlb",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DWYmmr74INQlb",
-      },
-      {
-        title: "Study Mode On",
-        description: "Helps me focus.",
-        status: "published",
-        userId: 3,
-        spotifyId: "37i9dQZF1DX8Uebhn9wzrS",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DX8Uebhn9wzrS",
-      },
-      {
-        title: "Classic Chill",
-        description: "Old school but gold.",
-        status: "published",
-        userId: 3,
-        spotifyId: "6QgjcU0zLnzq5OrUoSZ3OK",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/6QgjcU0zLnzq5OrUoSZ3OK",
-      },
-      {
-        title: "Top Gaming Tracks",
-        description: "Perfect for grinding ranked.",
-        status: "published",
-        userId: 3,
-        spotifyId: "37i9dQZF1DX2sUQwD7tbmL",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DX2sUQwD7tbmL",
-      },
-      {
-        title: "Energy Boost",
-        description: "Turn it up!",
-        status: "published",
-        userId: 3,
-        spotifyId: "4uLU6hMCjMI75M1A2tKUQC",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC",
-      },
-      // Posts for user 4
-      {
-        title: "Late Night Chill",
-        description: "This playlist puts me to sleep (in a good way).",
-        status: "published",
-        userId: 4,
-        spotifyId: "37i9dQZF1DWVzZlRWgqAGH",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DWVzZlRWgqAGH",
-      },
-      {
-        title: "Favorite Banger",
-        description: "Crank it loud!",
-        status: "published",
-        userId: 4,
-        spotifyId: "0eGsygTp906u18L0Oimnem",
-        spotifyType: "track",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/track/0eGsygTp906u18L0Oimnem",
-      },
-      {
-        title: "Feel Good Mix",
-        description: "This always boosts my mood.",
-        status: "published",
-        userId: 4,
-        spotifyId: "37i9dQZF1DXdPec7aLTmlC",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DXdPec7aLTmlC",
-      },
-      {
-        title: "Bop Playlist 💿",
-        description: "My current favorite finds. Trust me.",
-        status: "published",
-        userId: 4,
-        spotifyId: "37i9dQZF1DXcBWIGoYBM5M",
-        spotifyType: "playlist",
-        spotifyEmbedUrl:
-          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M",
-      },
-    ]);
-
-    console.log(`📝 Created ${posts.length} posts`);
-
-    console.log("🌱 Seeded the database");
   } catch (error) {
-    console.error("Error seeding database:", error);
+    console.error("❌ Error seeding database:", error);
+    if (error.name === 'SequelizeValidationError') {
+      error.errors.forEach(err => {
+        console.error(`   - ${err.path}: ${err.message}`);
+      });
+    }
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      console.error(`   - Unique constraint error: ${error.message}`);
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      console.error(`   - Foreign key constraint error: ${error.message}`);
+    }
   } finally {
-    db.close();
+    await db.close();
+    process.exit(0);
   }
 };
 
-seed();
+seedDatabase();

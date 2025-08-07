@@ -1,37 +1,48 @@
 const db = require("./db");
 const User = require("./user");
-const Post = require("./posts");
+const Posts = require("./posts");
 const Follows = require("./follows");
 
-// Set up associations
-User.hasMany(Post, {
-  foreignKey: "user_id", // Use snake_case for foreign key
+// Define Post-User associations
+User.hasMany(Posts, {
+  foreignKey: "user_id",
   as: "posts",
 });
 
-Post.belongsTo(User, {
-  foreignKey: "user_id", // Use snake_case for foreign key
+Posts.belongsTo(User, {
+  foreignKey: "user_id",
   as: "author",
 });
 
-// User following relationships
+// Define User following relationships
 User.belongsToMany(User, {
   through: Follows,
   as: "following",
-  foreignKey: "follower_id", // Use snake_case
-  otherKey: "following_id", // Use snake_case
+  foreignKey: "follower_id",
+  otherKey: "following_id",
 });
 
 User.belongsToMany(User, {
   through: Follows,
   as: "followers",
-  foreignKey: "following_id", // Use snake_case
-  otherKey: "follower_id", // Use snake_case
+  foreignKey: "following_id",
+  otherKey: "follower_id",
+});
+
+// Direct associations for easier querying
+Follows.belongsTo(User, {
+  foreignKey: 'follower_id',
+  as: 'follower'
+});
+
+Follows.belongsTo(User, {
+  foreignKey: 'following_id',
+  as: 'following'
 });
 
 module.exports = {
   db,
   User,
-  Post,
+  Posts,
   Follows,
 };
