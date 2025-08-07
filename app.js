@@ -32,6 +32,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/api", apiRouter);
 app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
+app.use("/api/profile", require("./api/profile"));
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -1,37 +1,62 @@
 const db = require("./db");
 const User = require("./user");
 const Posts = require("./posts");
-const Follows = require("./follows");
 
-// Set up associations
+// Define associations
 User.hasMany(Posts, { 
-  foreignKey: 'user_id', // Use snake_case for foreign key
-  as: 'posts' 
+  foreignKey: 'userId',
+  as: 'posts'
 });
 
 Posts.belongsTo(User, { 
-  foreignKey: 'user_id', // Use snake_case for foreign key
-  as: 'author' 
+  foreignKey: 'userId',
+  as: 'author'
 });
 
-// User following relationships
+// Create Follows table if it doesn't exist
+const { DataTypes } = require("sequelize");
+
+const Follows = db.define("follows", {
+  followerId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: User,
+      key: 'id'
+    }
+  },
+  followingId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: User,
+      key: 'id'
+    }
+  }
+}, {
+  tableName: 'follows',
+  underscored: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['follower_id', 'following_id']
+    }
+  ]
+});
+
+// Define Follows associations
 User.belongsToMany(User, {
   through: Follows,
-  as: 'following',
-  foreignKey: 'follower_id', // Use snake_case
-  otherKey: 'following_id'   // Use snake_case
+  foreignKey: 'followerId',
+  otherKey: 'followingId',
+  as: 'following'
 });
 
 User.belongsToMany(User, {
   through: Follows,
-  as: 'followers', 
-  foreignKey: 'following_id', // Use snake_case
-  otherKey: 'follower_id'     // Use snake_case
+  foreignKey: 'followingId',
+  otherKey: 'followerId',
+  as: 'followers'
 });
 
-module.exports = {
-  db,
-  User,
-  Posts,
-  Follows,
-};
+module.exports = { db, User, Posts, Follows };

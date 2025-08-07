@@ -14,13 +14,41 @@ const User = db.define("user", {
   },
   email: {
     type: DataTypes.STRING,
-    allowNull: true, // Allow null for Spotify-only users
+    allowNull: true,
     unique: true,
     validate: {
       isEmail: {
         msg: "Must be a valid email address"
       },
     },
+  },
+  firstName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'first_name',
+    validate: {
+      len: [0, 50]
+    }
+  },
+  lastName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'last_name',
+    validate: {
+      len: [0, 50]
+    }
+  },
+  bio: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    validate: {
+      len: [0, 500]
+    }
+  },
+  profileImage: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'profile_image'
   },
   auth0Id: {
     type: DataTypes.STRING,
@@ -30,7 +58,7 @@ const User = db.define("user", {
   },
   passwordHash: {
     type: DataTypes.STRING,
-    allowNull: true, // Allow null for Spotify-only users
+    allowNull: true,
     field: 'password_hash'
   },
   spotifyId: {
@@ -68,7 +96,6 @@ const User = db.define("user", {
   tableName: 'users',
   underscored: true,
   validate: {
-    // Custom validator: user must have either password or spotify connection
     mustHaveAuthMethod() {
       if (!this.passwordHash && !this.spotifyId && !this.auth0Id) {
         throw new Error('User must have at least one authentication method');
