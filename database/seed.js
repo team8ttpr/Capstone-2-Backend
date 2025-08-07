@@ -1,5 +1,5 @@
 const db = require("./db");
-const { User, Posts } = require("./index");
+const { User, Post } = require("./index");
 
 const seed = async () => {
   try {
@@ -16,105 +16,202 @@ const seed = async () => {
 
     console.log(`👤 Created ${users.length} users`);
 
-    const posts = await Posts.bulkCreate([
-      // Posts for admin
+    const posts = await Post.bulkCreate([
+      // User 1
       {
-        title: "Admin Post 1",
+        title: "Admin Vibes",
         description: "Admin is testing things.",
-        status: "published",
-        userId: 1,
-      },
-      {
-        title: "Admin Post 2",
-        description: "Another one by admin.",
         status: "draft",
         userId: 1,
+        spotifyId: "37i9dQZF1DXcBWIGoYBM5M",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M",
       },
       {
-        title: "Admin Post 3",
-        description: "Admin's third post.",
+        title: "Lo-Fi Work Flow",
+        description: "Perfect background music.",
         status: "published",
         userId: 1,
+        spotifyId: "37i9dQZF1DXdPec7aLTmlC",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DXdPec7aLTmlC",
+      },
+      {
+        title: "Rock & Roll!",
+        description: "Classic rock hits I love.",
+        status: "draft",
+        userId: 1,
+        spotifyId: "37i9dQZF1DWXRqgorJj26U",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DWXRqgorJj26U",
+      },
+      {
+        title: "Motivation Boost",
+        description: "Hype music to crush the day.",
+        status: "published",
+        userId: 1,
+        spotifyId: "7qiZfU4dY1lWllzX7mPBI3",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/7qiZfU4dY1lWllzX7mPBI3",
+      },
+      {
+        title: "Calm Mornings",
+        description: "Wake up gently.",
+        status: "published",
+        userId: 1,
+        spotifyId: "3KkXRkHbMCARz0aVfEt68P",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/3KkXRkHbMCARz0aVfEt68P",
       },
 
-      // Posts for user1
+      // User 2
       {
-        title: "User1's First",
-        description: "Hello world!",
+        title: "Late Night Drive",
+        description: "Vibes for cruising.",
         status: "published",
         userId: 2,
+        spotifyId: "6habFhsOp2NvshLv26DqMb",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/6habFhsOp2NvshLv26DqMb",
       },
       {
-        title: "User1's Second",
-        description: "Testing stuff.",
-        status: "draft",
-        userId: 2,
-      },
-      {
-        title: "User1's Third",
-        description: "Still learning!",
+        title: "Hip-Hop Energy",
+        description: "Stay pumped.",
         status: "published",
         userId: 2,
+        spotifyId: "37i9dQZF1DX0XUsuxWHRQd",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DX0XUsuxWHRQd",
+      },
+      {
+        title: "The Weekend Wave",
+        description: "Weekend vibes incoming.",
+        status: "published",
+        userId: 2,
+        spotifyId: "3U4isOIWM3VvDubwSI3y7a",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/3U4isOIWM3VvDubwSI3y7a",
+      },
+      {
+        title: "Pop Culture Hits",
+        description: "All the trending pop songs.",
+        status: "published",
+        userId: 2,
+        spotifyId: "37i9dQZF1DXcF6B6QPhFDv",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcF6B6QPhFDv",
+      },
+      {
+        title: "Mellow Mood",
+        description: "For rainy evenings.",
+        status: "published",
+        userId: 2,
+        spotifyId: "2Fxmhks0bxGSBdJ92vM42m",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/2Fxmhks0bxGSBdJ92vM42m",
       },
 
-      // Posts for user2
+      // User 3
       {
-        title: "Post by User2",
-        description: "Yup, it's working.",
-        status: "draft",
-        userId: 3,
-      },
-      {
-        title: "Second by User2",
-        description: "Seeding is cool.",
+        title: "Throwback Thursday",
+        description: "Hits from the 2000s.",
         status: "published",
         userId: 3,
+        spotifyId: "37i9dQZF1DWYmmr74INQlb",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DWYmmr74INQlb",
       },
       {
-        title: "User2 Final",
-        description: "Final test.",
-        status: "draft",
+        title: "Study Mode On",
+        description: "Helps me focus.",
+        status: "published",
         userId: 3,
+        spotifyId: "37i9dQZF1DX8Uebhn9wzrS",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DX8Uebhn9wzrS",
       },
-
-      // Posts for user3
       {
-        title: "u3-1",
-        description: "user3 post one",
+        title: "Classic Chill",
+        description: "Old school but gold.",
+        status: "published",
+        userId: 3,
+        spotifyId: "6QgjcU0zLnzq5OrUoSZ3OK",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/6QgjcU0zLnzq5OrUoSZ3OK",
+      },
+      {
+        title: "Top Gaming Tracks",
+        description: "Perfect for grinding ranked.",
+        status: "published",
+        userId: 3,
+        spotifyId: "37i9dQZF1DX2sUQwD7tbmL",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DX2sUQwD7tbmL",
+      },
+      {
+        title: "Energy Boost",
+        description: "Turn it up!",
+        status: "published",
+        userId: 3,
+        spotifyId: "4uLU6hMCjMI75M1A2tKUQC",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC",
+      },
+      // Posts for user 4
+      {
+        title: "Late Night Chill",
+        description: "This playlist puts me to sleep (in a good way).",
         status: "published",
         userId: 4,
+        spotifyId: "37i9dQZF1DWVzZlRWgqAGH",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DWVzZlRWgqAGH",
       },
       {
-        title: "u3-2",
-        description: "user3 post two",
-        status: "draft",
-        userId: 4,
-      },
-      {
-        title: "u3-3",
-        description: "user3 post three",
+        title: "Favorite Banger",
+        description: "Crank it loud!",
         status: "published",
         userId: 4,
-      },
-
-      // Posts for user4
-      {
-        title: "user4 test 1",
-        description: "just a test",
-        status: "draft",
-        userId: 5,
+        spotifyId: "0eGsygTp906u18L0Oimnem",
+        spotifyType: "track",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/track/0eGsygTp906u18L0Oimnem",
       },
       {
-        title: "user4 test 2",
-        description: "testing more",
+        title: "Feel Good Mix",
+        description: "This always boosts my mood.",
         status: "published",
-        userId: 5,
+        userId: 4,
+        spotifyId: "37i9dQZF1DXdPec7aLTmlC",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DXdPec7aLTmlC",
       },
       {
-        title: "user4 test 3",
-        description: "this is it",
-        status: "draft",
-        userId: 5,
+        title: "Bop Playlist 💿",
+        description: "My current favorite finds. Trust me.",
+        status: "published",
+        userId: 4,
+        spotifyId: "37i9dQZF1DXcBWIGoYBM5M",
+        spotifyType: "playlist",
+        spotifyEmbedUrl:
+          "https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M",
       },
     ]);
 
