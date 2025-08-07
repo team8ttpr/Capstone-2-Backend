@@ -36,6 +36,7 @@ const authenticateJWT = (req, res, next) => {
   });
 };
 
+//auth0 account creation route
 router.post("/auth0", async (req, res) => {
   try {
     const { auth0Id, email, username } = req.body;
@@ -101,6 +102,7 @@ router.post("/auth0", async (req, res) => {
   }
 });
 
+//post route to create an account
 router.post("/signup", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -144,6 +146,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
+//post route to login
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -189,6 +192,7 @@ router.post("/logout", (req, res) => {
   res.send({ message: "Logout successful" });
 });
 
+//get logged in user
 router.get("/me", (req, res) => {
   let token = req.cookies.token;
   

@@ -19,6 +19,7 @@ const cookieSettings = {
   path: "/",
 };
 
+//this function makes a call to get a spotify token
 const refreshSpotifyToken = async (user) => {
   try {
     const response = await axios.post(
@@ -50,6 +51,7 @@ const refreshSpotifyToken = async (user) => {
   }
 };
 
+//this function uses refresh token to get a new token if the existing one expires
 const getValidSpotifyToken = async (user) => {
   if (!user.spotifyAccessToken) {
     throw new Error("Spotify not connected");
@@ -66,6 +68,7 @@ const getValidSpotifyToken = async (user) => {
   return await refreshSpotifyToken(user);
 };
 
+//this creates the username for a user based on the username provided by spotify
 const generateUsername = async (spotifyProfile) => {
   let baseUsername = spotifyProfile.display_name || spotifyProfile.id || 'spotify_user';
   
@@ -100,7 +103,7 @@ const generateUsername = async (spotifyProfile) => {
   return finalUsername;
 };
 
-// Login URL endpoint
+// uses client id to get login url for spotify
 router.get("/login-url", (req, res) => {
   try {
     const scopes = [
@@ -129,7 +132,7 @@ router.get("/login-url", (req, res) => {
   }
 });
 
-// Auth URL for connected users
+// Get route for the user who is logged in
 router.get("/auth-url", authenticateJWT, (req, res) => {
   try {
     const scopes = [
@@ -158,7 +161,7 @@ router.get("/auth-url", authenticateJWT, (req, res) => {
   }
 });
 
-// Spotify login endpoint
+// Post route for logging in with spotify
 router.post("/login", async (req, res) => {
   try {
     const { code, state } = req.body;
@@ -291,7 +294,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Spotify callback for connected users
+// Callback url post route for spotify
 router.post("/callback", authenticateJWT, async (req, res) => {
   try {
     const { code, state } = req.body;
@@ -348,7 +351,7 @@ router.post("/callback", authenticateJWT, async (req, res) => {
   }
 });
 
-// Get Spotify profile
+// Get Spotify for logged in user
 router.get("/profile", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -371,7 +374,7 @@ router.get("/profile", authenticateJWT, async (req, res) => {
   }
 });
 
-// Get top tracks
+// Get top tracks for logged in user
 router.get("/top-tracks", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -513,7 +516,7 @@ router.get("/playlists/:id/tracks", authenticateJWT, async (req, res) => {
         Authorization: `Bearer ${accessToken}`,
       },
       params: {
-        limit: 100, // Get up to 100 tracks
+        limit: 100,
         offset: 0,
       },
     });
@@ -528,7 +531,7 @@ router.get("/playlists/:id/tracks", authenticateJWT, async (req, res) => {
   }
 });
 
-// Disconnect Spotify
+// Disconnect Spotify/ does not work at the moment
 router.delete("/disconnect", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
