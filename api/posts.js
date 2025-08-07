@@ -62,7 +62,14 @@ router.get("/mine", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
     const posts = await Post.findAll({
-      where: { userId },
+      where: { isPublic: true },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["username", "id"],
+        },
+      ],
     });
     res.json(posts);
   } catch (error) {
