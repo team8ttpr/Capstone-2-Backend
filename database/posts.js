@@ -44,6 +44,13 @@ const Post = db.define(
       allowNull: true,
       field: "spotify_type",
     },
+
+    spotifyEmbedUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: "spotify_embed_url",
+    },
+
     likesCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
