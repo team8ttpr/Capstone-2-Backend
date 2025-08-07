@@ -13,7 +13,7 @@ router.get("/feed", async (req, res) => {
       },
       include: [{
         model: User,
-        as: 'author',
+        as: 'author', 
         attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
       }],
       order: [['createdAt', 'DESC']],
@@ -144,7 +144,7 @@ router.get("/:id", async (req, res) => {
 // Create a new post (requires authentication)
 router.post("/", authenticateJWT, async (req, res) => {
   try {
-    const { title, description, status, spotifyId, spotifyType, isPublic = true } = req.body;
+    const { title, description, status, spotifyId, spotifyType, spotifyEmbedUrl, isPublic = true } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ error: "Title is required" });
@@ -171,6 +171,7 @@ router.post("/", authenticateJWT, async (req, res) => {
       
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
+      postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newPost = await Posts.create(postData);
@@ -194,7 +195,7 @@ router.post("/", authenticateJWT, async (req, res) => {
 // Create a draft post
 router.post("/draft", authenticateJWT, async (req, res) => {
   try {
-    const { title, description, spotifyId, spotifyType, isPublic = true } = req.body;
+    const { title, description, spotifyId, spotifyType, spotifyEmbedUrl, isPublic = true } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ error: "Title is required" });
@@ -217,6 +218,7 @@ router.post("/draft", authenticateJWT, async (req, res) => {
       
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
+      postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newDraft = await Posts.create(postData);
