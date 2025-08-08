@@ -97,6 +97,15 @@ const User = db.define("user", {
     allowNull: true,
     field: 'spotify_profile_image'
   },
+  profileTheme: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'default',
+    field: 'profile_theme',
+    validate: {
+      len: [1, 50] // Allow themes up to 50 characters
+    }
+  },
 }, {
   tableName: 'users',
   underscored: true,

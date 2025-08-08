@@ -10,7 +10,7 @@ router.get("/me", authenticateJWT, async (req, res) => {
       attributes: [
         'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
         'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
+        'avatarURL', 'profileTheme', 'createdAt'
       ]
     });
 
@@ -74,7 +74,7 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
 // Update current user's profile
 router.patch("/me", authenticateJWT, async (req, res) => {
   try {
-    const { firstName, lastName, bio, profileImage } = req.body;
+    const { firstName, lastName, bio, profileImage, profileTheme } = req.body;
     
     // Validate data
     const updateData = {};
@@ -108,8 +108,17 @@ router.patch("/me", authenticateJWT, async (req, res) => {
       updateData.profileImage = profileImage || null;
     }
 
+    if (profileTheme !== undefined) {
+      // allow any reasonable string
+      if (profileTheme && (typeof profileTheme !== 'string' || profileTheme.length > 50)) {
+        return res.status(400).json({ error: "Theme must be a string of 50 characters or less" });
+      }
+      updateData.profileTheme = profileTheme || 'default';
+    }
+
     const [updatedRowsCount] = await User.update(updateData, {
-      where: { id: req.user.id }
+      where: { id: req.user.id },
+      validate: false 
     });
 
     if (updatedRowsCount === 0) {
@@ -121,7 +130,7 @@ router.patch("/me", authenticateJWT, async (req, res) => {
       attributes: [
         'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
         'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
+        'avatarURL', 'profileTheme', 'createdAt'
       ]
     });
 
@@ -141,6 +150,53 @@ router.patch("/me", authenticateJWT, async (req, res) => {
   }
 });
 
+// Get current user's theme
+router.get("/me/theme", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['profileTheme']
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ 
+      theme: user.profileTheme || 'default',
+      message: "Theme retrieved successfully"
+    });
+  } catch (error) {
+    console.error("Error fetching user theme:", error);
+    res.status(500).json({ error: "Failed to fetch theme" });
+  }
+});
+
+// get available themes
+router.get("/themes", async (req, res) => {
+  try {
+    const themes = [
+      'default', 'ocean', 'sunset', 'purple', 'forest', 'rose',
+      'sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky',
+      'shadow', 'crimson', 'neon', 'void', 'electric'
+    ];
+
+    const themeCategories = {
+      original: ['default', 'ocean', 'sunset', 'purple', 'forest', 'rose'],
+      pastel: ['sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky'],
+      dark: ['shadow', 'crimson', 'neon', 'void', 'electric']
+    };
+
+    res.json({
+      themes: themes,
+      categories: themeCategories,
+      total: themes.length
+    });
+  } catch (error) {
+    console.error("Error fetching themes:", error);
+    res.status(500).json({ error: "Failed to fetch themes" });
+  }
+});
+
 // Get public profile by username
 router.get("/:username", async (req, res) => {
   try {
@@ -149,7 +205,7 @@ router.get("/:username", async (req, res) => {
       attributes: [
         'id', 'username', 'firstName', 'lastName', 'bio', 
         'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
+        'avatarURL', 'profileTheme', 'createdAt'
       ]
     });
 
