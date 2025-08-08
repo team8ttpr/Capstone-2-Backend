@@ -69,7 +69,7 @@ router.get("/test", (req, res) => {
 });
 
 // Get posts if status === draft
-router.get("/drafts", authenticateJWT, async (req, res) => {
+router.get("/draft", authenticateJWT, async (req, res) => {
   try {
     const drafts = await Posts.findAll({
       where: {
@@ -100,7 +100,7 @@ router.get("/drafts", authenticateJWT, async (req, res) => {
 });
 
 // Get posts by the logged-in user
-router.get("/mine", authenticateJWT, async (req, res) => {
+router.get("/my", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
     const posts = await Posts.findAll({
