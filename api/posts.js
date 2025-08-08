@@ -7,19 +7,44 @@ const { authenticateJWT } = require("../auth");
 router.get("/feed", async (req, res) => {
   try {
     const posts = await Posts.findAll({
-      where: { 
-        status: 'published',
-        isPublic: true 
+      where: {
+        status: "published",
+        isPublic: true,
       },
-      include: [{
-        model: User,
-        as: 'author', 
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 20
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
-    
+
     res.json(posts);
   } catch (error) {
     console.error("Error fetching feed posts:", error);
@@ -36,10 +61,17 @@ router.get("/", async (req, res) => {
         {
           model: User,
           as: "author",
-          attributes: ["username", "id", "spotifyDisplayName", "profileImage", "spotifyProfileImage", "avatarURL"],
+          attributes: [
+            "username",
+            "id",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
         },
       ],
-      order: [['createdAt', 'DESC']]
+      order: [["createdAt", "DESC"]],
     });
     res.json(posts);
   } catch (error) {
@@ -53,19 +85,28 @@ router.get("/test", (req, res) => {
 });
 
 // Get posts if status === draft
-router.get("/drafts", authenticateJWT, async (req, res) => {
+router.get("/draft", authenticateJWT, async (req, res) => {
   try {
     const drafts = await Posts.findAll({
       where: {
         userId: req.user.id,
         status: "draft",
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
     });
     res.json(drafts);
   } catch (error) {
@@ -75,17 +116,26 @@ router.get("/drafts", authenticateJWT, async (req, res) => {
 });
 
 // Get posts by the logged-in user
-router.get("/mine", authenticateJWT, async (req, res) => {
+router.get("/my", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
     const posts = await Posts.findAll({
       where: { userId },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
     });
     res.json(posts);
   } catch (error) {
@@ -102,12 +152,21 @@ router.get("/published", authenticateJWT, async (req, res) => {
         userId: req.user.id,
         status: "published",
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
     });
     res.json(publishedPosts);
   } catch (error) {
@@ -125,7 +184,14 @@ router.get("/:id", async (req, res) => {
         {
           model: User,
           as: "author",
-          attributes: ["username", "id", "spotifyDisplayName", "profileImage", "spotifyProfileImage", "avatarURL"],
+          attributes: [
+            "username",
+            "id",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
         },
       ],
     });
@@ -141,48 +207,102 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+//Get a single draft post by ID
+router.get("/draft/:id", authenticateJWT, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const draft = await Posts.findOne({
+      where: {
+        id: postId,
+        userId: req.user.id,
+        status: "draft",
+      },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "username",
+            "id",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+    });
+
+    if (!draft) {
+      return res.status(404).json({ error: "Draft not found" });
+    }
+
+    res.json(draft);
+  } catch (error) {
+    console.error("Error fetching draft:", error);
+    res.status(500).json({ error: "Failed to fetch draft" });
+  }
+});
+
 // Create a new post (requires authentication)
 router.post("/", authenticateJWT, async (req, res) => {
   try {
-    const { title, description, status, spotifyId, spotifyType, spotifyEmbedUrl, isPublic = true } = req.body;
+    const {
+      title,
+      description,
+      status,
+      spotifyId,
+      spotifyType,
+      spotifyEmbedUrl,
+      isPublic = true,
+    } = req.body;
 
-    if (!title || title.trim() === '') {
+    if (!title || title.trim() === "") {
       return res.status(400).json({ error: "Title is required" });
     }
 
-    if (!description || description.trim() === '') {
+    if (!description || description.trim() === "") {
       return res.status(400).json({ error: "Description is required" });
     }
 
     const postData = {
       title: title.trim(),
       description: description.trim(),
-      status: status || 'published',
+      status: status || "published",
       userId: req.user.id,
-      isPublic: isPublic
+      isPublic: isPublic,
     };
 
     // Handle Spotify embed data
     if (spotifyId && spotifyType) {
-      const validTypes = ['track', 'album', 'playlist', 'artist'];
+      const validTypes = ["track", "album", "playlist", "artist"];
       if (!validTypes.includes(spotifyType)) {
         return res.status(400).json({ error: "Invalid Spotify type" });
       }
-      
+
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
       postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newPost = await Posts.create(postData);
-    
+
     // Fetch the created post with author info
     const postWithAuthor = await Posts.findByPk(newPost.id, {
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
 
     res.status(201).json(postWithAuthor);
@@ -195,41 +315,57 @@ router.post("/", authenticateJWT, async (req, res) => {
 // Create a draft post
 router.post("/draft", authenticateJWT, async (req, res) => {
   try {
-    const { title, description, spotifyId, spotifyType, spotifyEmbedUrl, isPublic = true } = req.body;
+    const {
+      title,
+      description,
+      spotifyId,
+      spotifyType,
+      spotifyEmbedUrl,
+      isPublic = true,
+    } = req.body;
 
-    if (!title || title.trim() === '') {
+    if (!title || title.trim() === "") {
       return res.status(400).json({ error: "Title is required" });
     }
 
     const postData = {
       title: title.trim(),
-      description: description || '',
-      status: 'draft',
+      description: description || "",
+      status: "draft",
       userId: req.user.id,
-      isPublic: isPublic
+      isPublic: isPublic,
     };
 
     // Handle Spotify embed data
     if (spotifyId && spotifyType) {
-      const validTypes = ['track', 'album', 'playlist', 'artist'];
+      const validTypes = ["track", "album", "playlist", "artist"];
       if (!validTypes.includes(spotifyType)) {
         return res.status(400).json({ error: "Invalid Spotify type" });
       }
-      
+
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
       postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newDraft = await Posts.create(postData);
-    
+
     // Fetch the created draft with author info
     const draftWithAuthor = await Posts.findByPk(newDraft.id, {
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
 
     res.status(201).json(draftWithAuthor);
@@ -250,10 +386,13 @@ router.patch("/draft/:id", authenticateJWT, async (req, res) => {
 
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
-    if (description !== undefined) updateData.description = description || '';
+    if (description !== undefined) updateData.description = description || "";
     if (spotifyId !== undefined) updateData.spotifyId = spotifyId || null;
     if (spotifyType !== undefined) {
-      if (spotifyType && !['track', 'album', 'playlist', 'artist'].includes(spotifyType)) {
+      if (
+        spotifyType &&
+        !["track", "album", "playlist", "artist"].includes(spotifyType)
+      ) {
         return res.status(400).json({ error: "Invalid Spotify type" });
       }
       updateData.spotifyType = spotifyType || null;
@@ -269,16 +408,27 @@ router.patch("/draft/:id", authenticateJWT, async (req, res) => {
     });
 
     if (updatedRowsCount === 0) {
-      return res.status(404).json({ error: "Draft post not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ error: "Draft post not found or unauthorized" });
     }
 
     // Fetch updated post with author info
     const updatedPost = await Posts.findByPk(req.params.id, {
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
 
     res.json(updatedPost);
@@ -292,27 +442,38 @@ router.patch("/draft/:id", authenticateJWT, async (req, res) => {
 router.patch("/:id/publish", authenticateJWT, async (req, res) => {
   try {
     const [updatedRowsCount] = await Posts.update(
-      { status: 'published' },
+      { status: "published" },
       {
-        where: { 
+        where: {
           id: parseInt(req.params.id),
           userId: req.user.id,
-          status: 'draft'
-        }
+          status: "draft",
+        },
       }
     );
 
     if (updatedRowsCount === 0) {
-      return res.status(404).json({ error: "Draft post not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ error: "Draft post not found or unauthorized" });
     }
 
     // Fetch updated post with author info
     const publishedPost = await Posts.findByPk(req.params.id, {
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }]
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
 
     res.json(publishedPost);
@@ -326,15 +487,15 @@ router.patch("/:id/publish", authenticateJWT, async (req, res) => {
 router.post("/:id/like", authenticateJWT, async (req, res) => {
   try {
     const post = await Posts.findByPk(req.params.id);
-    
+
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
 
     // Simple like increment (you can make this more sophisticated later)
-    await post.increment('likesCount');
+    await post.increment("likesCount");
     await post.reload();
-    
+
     res.json({ message: "Post liked", likesCount: post.likesCount });
   } catch (error) {
     console.error("Error liking post:", error);
@@ -385,7 +546,9 @@ router.delete("/:id", authenticateJWT, async (req, res) => {
     }
 
     if (post.userId !== req.user.id) {
-      return res.status(403).json({ error: "Unauthorized to delete this post" });
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to delete this post" });
     }
 
     await post.destroy();
