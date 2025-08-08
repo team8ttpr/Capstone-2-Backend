@@ -15,26 +15,26 @@ Posts.belongsTo(User, {
 
 User.belongsToMany(User, {
   through: Follows,
-  as: "following",
+  as: "Following",
   foreignKey: "follower_id",
   otherKey: "following_id",
 });
 
 User.belongsToMany(User, {
   through: Follows,
-  as: "followers",
+  as: "Followers",
   foreignKey: "following_id",
   otherKey: "follower_id",
 });
 
 Follows.belongsTo(User, {
-  foreignKey: 'follower_id',
-  as: 'follower'
+  foreignKey: "follower_id",
+  as: "Follower",
 });
 
 Follows.belongsTo(User, {
-  foreignKey: 'following_id',
-  as: 'following'
+  foreignKey: "following_id",
+  as: "Following",
 });
 
 module.exports = {

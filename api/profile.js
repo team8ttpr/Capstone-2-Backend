@@ -8,10 +8,18 @@ router.get("/me", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "createdAt",
+      ],
     });
 
     if (!user) {
@@ -20,17 +28,17 @@ router.get("/me", authenticateJWT, async (req, res) => {
 
     // Get post count
     const postCount = await Posts.count({
-      where: { userId: user.id, status: 'published' }
+      where: { userId: user.id, status: "published" },
     });
 
     // Get followers count
     const followersCount = await Follows.count({
-      where: { followingId: user.id }
+      where: { followingId: user.id },
     });
 
     // Get following count
     const followingCount = await Follows.count({
-      where: { followerId: user.id }
+      where: { followerId: user.id },
     });
 
     res.json({
@@ -38,8 +46,8 @@ router.get("/me", authenticateJWT, async (req, res) => {
       stats: {
         posts: postCount,
         followers: followersCount,
-        following: followingCount
-      }
+        following: followingCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -51,17 +59,26 @@ router.get("/me", authenticateJWT, async (req, res) => {
 router.get("/me/posts", authenticateJWT, async (req, res) => {
   try {
     const posts = await Posts.findAll({
-      where: { 
+      where: {
         userId: req.user.id,
-        status: 'published'
+        status: "published",
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 20
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
 
     res.json(posts);
@@ -75,41 +92,49 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
 router.patch("/me", authenticateJWT, async (req, res) => {
   try {
     const { firstName, lastName, bio, profileImage } = req.body;
-    
+
     // Validate data
     const updateData = {};
-    
+
     if (firstName !== undefined) {
       if (firstName && firstName.length > 50) {
-        return res.status(400).json({ error: "First name must be 50 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "First name must be 50 characters or less" });
       }
       updateData.firstName = firstName || null;
     }
-    
+
     if (lastName !== undefined) {
       if (lastName && lastName.length > 50) {
-        return res.status(400).json({ error: "Last name must be 50 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "Last name must be 50 characters or less" });
       }
       updateData.lastName = lastName || null;
     }
-    
+
     if (bio !== undefined) {
       if (bio && bio.length > 500) {
-        return res.status(400).json({ error: "Bio must be 500 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "Bio must be 500 characters or less" });
       }
       updateData.bio = bio || null;
     }
-    
+
     if (profileImage !== undefined) {
       // Basic URL validation
       if (profileImage && !profileImage.match(/^https?:\/\/.+/)) {
-        return res.status(400).json({ error: "Profile image must be a valid URL" });
+        return res
+          .status(400)
+          .json({ error: "Profile image must be a valid URL" });
       }
       updateData.profileImage = profileImage || null;
     }
 
     const [updatedRowsCount] = await User.update(updateData, {
-      where: { id: req.user.id }
+      where: { id: req.user.id },
     });
 
     if (updatedRowsCount === 0) {
@@ -119,24 +144,32 @@ router.patch("/me", authenticateJWT, async (req, res) => {
     // Fetch updated user
     const updatedUser = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "createdAt",
+      ],
     });
 
     res.json(updatedUser);
   } catch (error) {
     console.error("Error updating profile:", error);
-    
-    if (error.name === 'SequelizeValidationError') {
-      const errorMessages = error.errors.map(err => err.message);
-      return res.status(400).json({ 
-        error: "Validation failed", 
-        details: errorMessages.join(', ')
+
+    if (error.name === "SequelizeValidationError") {
+      const errorMessages = error.errors.map((err) => err.message);
+      return res.status(400).json({
+        error: "Validation failed",
+        details: errorMessages.join(", "),
       });
     }
-    
+
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -147,10 +180,17 @@ router.get("/:username", async (req, res) => {
     const user = await User.findOne({
       where: { username: req.params.username },
       attributes: [
-        'id', 'username', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'createdAt'
-      ]
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "createdAt",
+      ],
     });
 
     if (!user) {
@@ -159,17 +199,17 @@ router.get("/:username", async (req, res) => {
 
     // Get post count
     const postCount = await Posts.count({
-      where: { userId: user.id, status: 'published', isPublic: true }
+      where: { userId: user.id, status: "published", isPublic: true },
     });
 
     // Get followers count
     const followersCount = await Follows.count({
-      where: { followingId: user.id }
+      where: { followingId: user.id },
     });
 
     // Get following count
     const followingCount = await Follows.count({
-      where: { followerId: user.id }
+      where: { followerId: user.id },
     });
 
     res.json({
@@ -177,8 +217,8 @@ router.get("/:username", async (req, res) => {
       stats: {
         posts: postCount,
         followers: followersCount,
-        following: followingCount
-      }
+        following: followingCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching public profile:", error);
@@ -190,7 +230,7 @@ router.get("/:username", async (req, res) => {
 router.get("/:username/posts", async (req, res) => {
   try {
     const user = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!user) {
@@ -198,18 +238,27 @@ router.get("/:username/posts", async (req, res) => {
     }
 
     const posts = await Posts.findAll({
-      where: { 
+      where: {
         userId: user.id,
-        status: 'published',
-        isPublic: true
+        status: "published",
+        isPublic: true,
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 20
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
 
     res.json(posts);
@@ -223,7 +272,7 @@ router.get("/:username/posts", async (req, res) => {
 router.post("/:username/follow", authenticateJWT, async (req, res) => {
   try {
     const userToFollow = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!userToFollow) {
@@ -238,8 +287,8 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
     const existingFollow = await Follows.findOne({
       where: {
         followerId: req.user.id,
-        followingId: userToFollow.id
-      }
+        followingId: userToFollow.id,
+      },
     });
 
     if (existingFollow) {
@@ -250,7 +299,7 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
       // Follow
       await Follows.create({
         followerId: req.user.id,
-        followingId: userToFollow.id
+        followingId: userToFollow.id,
       });
       res.json({ message: "Followed successfully", following: true });
     }
@@ -264,7 +313,7 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
 router.get("/:username/following-status", authenticateJWT, async (req, res) => {
   try {
     const userToCheck = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!userToCheck) {
@@ -274,8 +323,8 @@ router.get("/:username/following-status", authenticateJWT, async (req, res) => {
     const isFollowing = await Follows.findOne({
       where: {
         followerId: req.user.id,
-        followingId: userToCheck.id
-      }
+        followingId: userToCheck.id,
+      },
     });
 
     res.json({ following: !!isFollowing });
@@ -289,28 +338,36 @@ router.get("/:username/following-status", authenticateJWT, async (req, res) => {
 router.get("/:username/followers", async (req, res) => {
   try {
     const user = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json([]);
     }
 
     const followers = await Follows.findAll({
       where: { followingId: user.id },
-      include: [{
-        model: User,
-        as: 'follower',
-        attributes: ['id', 'username', 'firstName', 'lastName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 50
+      include: [
+        {
+          model: User,
+          as: "Follower", // ✅ explicitly use alias
+          attributes: [
+            "id",
+            "username",
+            "firstName",
+            "lastName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
 
-    res.json(followers.map(follow => follow.follower));
+    res.json(followers.map((f) => f.Follower));
   } catch (error) {
     console.error("Error fetching followers:", error);
-    res.status(500).json({ error: "Failed to fetch followers" });
+    res.status(500).json([]);
   }
 });
 
@@ -318,25 +375,26 @@ router.get("/:username/followers", async (req, res) => {
 router.get("/:username/following", async (req, res) => {
   try {
     const user = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const following = await user.getFollowing({
+      attributes: [
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "profileImage",
+        "spotifyProfileImage",
+        "avatarURL",
+      ],
+      joinTableAttributes: [], // hide join row
+      order: [["username", "ASC"]],
+      limit: 50,
     });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const following = await Follows.findAll({
-      where: { followerId: user.id },
-      include: [{
-        model: User,
-        as: 'following',
-        attributes: ['id', 'username', 'firstName', 'lastName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 50
-    });
-
-    res.json(following.map(follow => follow.following));
+    res.json(following);
   } catch (error) {
     console.error("Error fetching following:", error);
     res.status(500).json({ error: "Failed to fetch following" });
