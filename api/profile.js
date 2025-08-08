@@ -176,60 +176,6 @@ router.get("/me/theme", authenticateJWT, async (req, res) => {
   }
 });
 
-// Update current user's theme
-router.put("/me/theme", authenticateJWT, async (req, res) => {
-  try {
-    const { theme } = req.body;
-
-    if (!theme) {
-      return res.status(400).json({ error: "Theme is required" });
-    }
-
-    const validThemes = [
-      'default', 'ocean', 'sunset', 'purple', 'forest', 'rose',
-      'sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky',
-      'shadow', 'crimson', 'neon', 'void', 'electric'
-    ];
-
-    if (!validThemes.includes(theme)) {
-      return res.status(400).json({ 
-        error: "Invalid theme selection",
-        validThemes: validThemes
-      });
-    }
-
-    const [updatedRowsCount] = await User.update(
-      { profileTheme: theme },
-      { 
-        where: { id: req.user.id },
-        validate: false // Skip model validation since we're only updating theme
-      }
-    );
-
-    if (updatedRowsCount === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({ 
-      theme: theme,
-      message: "Theme updated successfully",
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error("Error updating user theme:", error);
-    
-    if (error.name === 'SequelizeValidationError') {
-      const errorMessages = error.errors.map(err => err.message);
-      return res.status(400).json({ 
-        error: "Validation failed", 
-        details: errorMessages.join(', ')
-      });
-    }
-    
-    res.status(500).json({ error: "Failed to update theme" });
-  }
-});
-
 // get available themes
 router.get("/themes", async (req, res) => {
   try {
