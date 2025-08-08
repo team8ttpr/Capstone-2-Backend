@@ -207,6 +207,43 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+//Get a single draft post by ID
+router.get("/draft/:id", authenticateJWT, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const draft = await Posts.findOne({
+      where: {
+        id: postId,
+        userId: req.user.id,
+        status: "draft",
+      },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "username",
+            "id",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+    });
+
+    if (!draft) {
+      return res.status(404).json({ error: "Draft not found" });
+    }
+
+    res.json(draft);
+  } catch (error) {
+    console.error("Error fetching draft:", error);
+    res.status(500).json({ error: "Failed to fetch draft" });
+  }
+});
+
 // Create a new post (requires authentication)
 router.post("/", authenticateJWT, async (req, res) => {
   try {
