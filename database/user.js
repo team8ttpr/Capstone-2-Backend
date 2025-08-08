@@ -98,14 +98,13 @@ const User = db.define("user", {
     field: 'spotify_profile_image'
   },
   profileTheme: {
-    type: DataTypes.ENUM(
-      'default', 'ocean', 'sunset', 'purple', 'forest', 'rose',
-      'sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky',
-      'shadow', 'crimson', 'neon', 'void', 'electric'
-    ),
+    type: DataTypes.STRING,
     allowNull: false,
     defaultValue: 'default',
-    field: 'profile_theme'
+    field: 'profile_theme',
+    validate: {
+      len: [1, 50] // Allow themes up to 50 characters
+    }
   },
 }, {
   tableName: 'users',

@@ -109,14 +109,9 @@ router.patch("/me", authenticateJWT, async (req, res) => {
     }
 
     if (profileTheme !== undefined) {
-      const validThemes = [
-        'default', 'ocean', 'sunset', 'purple', 'forest', 'rose',
-        'sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky',
-        'shadow', 'crimson', 'neon', 'void', 'electric'
-      ];
-      
-      if (profileTheme && !validThemes.includes(profileTheme)) {
-        return res.status(400).json({ error: "Invalid theme selection" });
+      // allow any reasonable string
+      if (profileTheme && (typeof profileTheme !== 'string' || profileTheme.length > 50)) {
+        return res.status(400).json({ error: "Theme must be a string of 50 characters or less" });
       }
       updateData.profileTheme = profileTheme || 'default';
     }
