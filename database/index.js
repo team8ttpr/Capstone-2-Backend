@@ -3,7 +3,6 @@ const User = require("./user");
 const Posts = require("./posts");
 const Follows = require("./follows");
 
-// Define Post-User associations
 User.hasMany(Posts, {
   foreignKey: "user_id",
   as: "posts",
@@ -14,7 +13,6 @@ Posts.belongsTo(User, {
   as: "author",
 });
 
-// Define User following relationships
 User.belongsToMany(User, {
   through: Follows,
   as: "following",
@@ -29,7 +27,6 @@ User.belongsToMany(User, {
   otherKey: "follower_id",
 });
 
-// Direct associations for easier querying
 Follows.belongsTo(User, {
   foreignKey: 'follower_id',
   as: 'follower'

@@ -27,6 +27,22 @@ router.get("/feed", async (req, res) => {
       ],
       order: [["createdAt", "DESC"]],
       limit: 20,
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
 
     res.json(posts);
@@ -200,6 +216,7 @@ router.post("/", authenticateJWT, async (req, res) => {
       status,
       spotifyId,
       spotifyType,
+      spotifyEmbedUrl,
       isPublic = true,
     } = req.body;
 
@@ -228,6 +245,7 @@ router.post("/", authenticateJWT, async (req, res) => {
 
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
+      postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newPost = await Posts.create(postData);
@@ -265,6 +283,7 @@ router.post("/draft", authenticateJWT, async (req, res) => {
       description,
       spotifyId,
       spotifyType,
+      spotifyEmbedUrl,
       isPublic = true,
     } = req.body;
 
@@ -289,6 +308,7 @@ router.post("/draft", authenticateJWT, async (req, res) => {
 
       postData.spotifyId = spotifyId;
       postData.spotifyType = spotifyType;
+      postData.spotifyEmbedUrl = spotifyEmbedUrl;
     }
 
     const newDraft = await Posts.create(postData);
