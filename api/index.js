@@ -4,12 +4,12 @@ const testDbRouter = require("./test-db");
 const searchRouter = require("./search");
 const postsRouter = require("./posts");
 const profileRouter = require("./profile");
-const stickerRouter = require("./sticker");
+const stickersRouter = require("./stickers");
 
 router.use("/test-db", testDbRouter);
 router.use("/search-songs", searchRouter);
 router.use("/posts", postsRouter);
 router.use("/profile", profileRouter);
-router.use("/stickers", stickerRouter);
+router.use("/stickers", stickersRouter);
 
 module.exports = router;
