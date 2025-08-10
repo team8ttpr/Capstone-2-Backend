@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
-
+// this is for stickers streaming from Cloudinary
 const Sticker = db.define("sticker", {
   name: {
     type: DataTypes.STRING,

@@ -1,6 +1,6 @@
 const { DataTypes } = require("sequelize");
 const db = require("./db");
-
+//this is to save the layout of the user's profile stickers
 const UserProfileSticker = db.define("user_profile_sticker", {
   userId: {
     type: DataTypes.INTEGER,

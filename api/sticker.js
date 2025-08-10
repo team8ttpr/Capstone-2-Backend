@@ -38,4 +38,38 @@ router.get('/presets', async (req, res) => {
   }
 });
 
+// GET /api/stickers/custom - gett custom stickers from "TTP-Capstone 2/Custom" folder
+router.get('/custom', async (req, res) => {
+  try {
+    // CUstom folder
+    const cloudinaryResult = await cloudinary.search
+      .expression('folder:"TTP-Capstone 2/Custom"/*')
+      .max_results(100)
+      .execute();
+
+    const customStickers = cloudinaryResult.resources.map(resource => {
+      return {
+        id: resource.public_id,
+        name: resource.display_name || resource.public_id.split('/').pop(),
+        url: resource.secure_url,
+        type: 'custom',
+        width: resource.width,
+        height: resource.height,
+        format: resource.format,
+        sizeBytes: resource.bytes,
+        cloudinaryPublicId: resource.public_id,
+        createdAt: resource.created_at
+      };
+    });
+
+    res.json(customStickers);
+  } catch (error) {
+    console.error('Error fetching custom stickers from Cloudinary:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch custom stickers',
+      details: error.message 
+    });
+  }
+});
+
 module.exports = router;
