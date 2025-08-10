@@ -4,6 +4,7 @@ const { cloudinary } = require('../config/cloudinary');
 const { authenticateJWT } = require('../auth');
 const { Sticker } = require('../database');
 const sharp = require('sharp');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 // multer for uploads, accepts any field name
@@ -70,9 +71,16 @@ router.get('/presets', async (req, res) => {
   }
 });
 
-// get user's custom stickers from db
+// get user's custom stickers from db, only return those that exist in cloudinary folder listing, and also include cloudinary-only stickers
 router.get('/custom', authenticateJWT, async (req, res) => {
   try {
+    // fetch all custom stickers from cloudinary folder
+    const cloudinaryResult = await cloudinary.search
+      .expression('folder:"TTP-Capstone 2/Custom"')
+      .max_results(100)
+      .execute();
+    const cloudinaryPublicIds = new Set(cloudinaryResult.resources.map(r => r.public_id));
+    // fetch all db stickers for user
     const userStickers = await Sticker.findAll({
       where: {
         type: 'custom',
@@ -80,22 +88,54 @@ router.get('/custom', authenticateJWT, async (req, res) => {
       },
       order: [['createdAt', 'DESC']]
     });
-    const customStickers = userStickers.map(sticker => ({
-      id: sticker.cloudinaryPublicId,
-      name: sticker.name,
-      url: sticker.url,
-      type: sticker.type,
-      width: sticker.width,
-      height: sticker.height,
-      format: sticker.format,
-      sizeBytes: sticker.sizeBytes,
-      cloudinaryPublicId: sticker.cloudinaryPublicId,
-      createdAt: sticker.createdAt,
-      uploadedBy: sticker.uploadedBy
-    }));
-    res.json(customStickers);
+    // keep only db stickers that exist in cloudinary folder
+    const stickersWithCloudinary = [];
+    const stickersToDelete = [];
+    for (const sticker of userStickers) {
+      if (cloudinaryPublicIds.has(sticker.cloudinaryPublicId)) {
+        stickersWithCloudinary.push({
+          id: sticker.cloudinaryPublicId,
+          name: sticker.name,
+          url: sticker.url,
+          type: sticker.type,
+          width: sticker.width,
+          height: sticker.height,
+          format: sticker.format,
+          sizeBytes: sticker.sizeBytes,
+          cloudinaryPublicId: sticker.cloudinaryPublicId,
+          createdAt: sticker.createdAt,
+          uploadedBy: sticker.uploadedBy,
+          missingInDb: false
+        });
+      } else {
+        stickersToDelete.push(sticker.id);
+      }
+    }
+    // delete db records for stickers missing from cloudinary
+    if (stickersToDelete.length > 0) {
+      await Sticker.destroy({ where: { id: stickersToDelete } });
+    }
+    // add cloudinary-only stickers
+    const dbPublicIds = new Set(userStickers.map(s => s.cloudinaryPublicId));
+    const cloudinaryOnly = cloudinaryResult.resources
+      .filter(resource => !dbPublicIds.has(resource.public_id))
+      .map(resource => ({
+        id: resource.public_id,
+        name: resource.display_name || resource.public_id.split('/').pop(),
+        url: resource.secure_url,
+        type: 'custom',
+        width: resource.width,
+        height: resource.height,
+        format: resource.format,
+        sizeBytes: resource.bytes,
+        cloudinaryPublicId: resource.public_id,
+        createdAt: resource.created_at,
+        uploadedBy: req.user.id,
+        missingInDb: true
+      }));
+    // combine both lists
+    res.json([...stickersWithCloudinary, ...cloudinaryOnly]);
   } catch (error) {
-    console.error('Error fetching user custom stickers:', error);
     res.status(500).json({ 
       error: 'Failed to fetch custom stickers',
       details: error.message 
@@ -310,50 +350,73 @@ router.post('/upload-with-bg-removal', authenticateJWT, (req, res, next) => {
   }
 });
 
-// delete a custom sticker
-router.delete('/:id', authenticateJWT, async (req, res) => {
+// new: delete custom sticker via POST -- i couldnt get the DELETE method to work with cloudinary
+router.post('/custom/delete', authenticateJWT, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.body;
+    if (!id) {
+      return res.status(400).json({ error: 'id is required in request body' });
+    }
     const userId = req.user.id;
-    // decode and extract filename
     const decodedId = decodeURIComponent(id);
     const filenameOnly = decodedId.split('/').pop();
-    // find sticker by filename only
+    const allUserStickers = await Sticker.findAll({
+      where: { uploadedBy: userId, type: 'custom' },
+      attributes: ['cloudinaryPublicId', 'url', 'name', 'id']
+    });
+    const allIds = allUserStickers.map(s => s.cloudinaryPublicId);
+    const allFilenames = allUserStickers.map(s => s.cloudinaryPublicId.split('/').pop());
+    const allUrls = allUserStickers.map(s => s.url);
+    // try to match by full path, filename, or url
+    const { Op } = require('sequelize');
     const sticker = await Sticker.findOne({
       where: {
-        cloudinaryPublicId: filenameOnly,
-        uploadedBy: userId,
-        type: 'custom'
+        [Op.and]: [
+          { uploadedBy: userId },
+          { type: 'custom' },
+          {
+            [Op.or]: [
+              { cloudinaryPublicId: decodedId },
+              { cloudinaryPublicId: filenameOnly },
+              { url: decodedId },
+              { url: filenameOnly }
+            ]
+          }
+        ]
       }
     });
     if (!sticker) {
       return res.status(404).json({
-        error: 'Sticker not found',
+        error: 'sticker not found',
         debug: {
           searchedId: id,
-          decodedId: decodedId,
-          filenameOnly: filenameOnly
+          decodedId,
+          filenameOnly,
+          allCloudinaryPublicIds: allIds,
+          allFilenames,
+          allUrls
         }
       });
     }
-    // delete from cloudinary
     try {
       await cloudinary.uploader.destroy(sticker.cloudinaryPublicId);
-    } catch (cloudinaryError) {
-      // ignore cloudinary errors
+      await sticker.destroy();
+      res.json({
+        message: 'sticker deleted successfully',
+        deletedSticker: {
+          id: sticker.cloudinaryPublicId,
+          name: sticker.name
+        }
+      });
+    } catch (deleteError) {
+      res.status(500).json({
+        error: 'failed to delete sticker in cloudinary or db',
+        details: deleteError.message
+      });
     }
-    // delete from db
-    await sticker.destroy();
-    res.json({
-      message: 'Sticker deleted successfully',
-      deletedSticker: {
-        id: sticker.cloudinaryPublicId,
-        name: sticker.name
-      }
-    });
   } catch (error) {
     res.status(500).json({
-      error: 'Failed to delete sticker',
+      error: 'failed to delete sticker',
       details: error.message
     });
   }

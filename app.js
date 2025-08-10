@@ -35,7 +35,7 @@ app.use("/auth/spotify", spotifyRouter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.sendStatus(500);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
 });
 
 const runApp = async () => {
