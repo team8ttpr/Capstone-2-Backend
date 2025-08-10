@@ -41,12 +41,12 @@ Follows.belongsTo(User, {
 
 // Sticker associations
 User.hasMany(Sticker, {
-  foreignKey: "uploader_id",
+  foreignKey: "uploaded_by",
   as: "uploadedStickers",
 });
 
 Sticker.belongsTo(User, {
-  foreignKey: "uploader_id",
+  foreignKey: "uploaded_by",
   as: "uploader",
 });
 
