@@ -3,7 +3,7 @@ const { cloudinary } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// GET /api/stickers/presets - get preset stickers from "TTP-Capstone 2/Preset" folder
+// GET /api/stickers/presets -  from "TTP-Capstone 2/Preset" folder
 router.get('/presets', async (req, res) => {
   try {
     // search "Preset" folder
