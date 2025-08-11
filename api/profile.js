@@ -18,7 +18,9 @@ router.get("/me", authenticateJWT, async (req, res) => {
         "spotifyDisplayName",
         "spotifyProfileImage",
         "avatarURL",
+        "profileTheme",
         "createdAt",
+        "spotifyItems",
       ],
     });
 
@@ -91,7 +93,7 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
 // Update current user's profile
 router.patch("/me", authenticateJWT, async (req, res) => {
   try {
-    const { firstName, lastName, bio, profileImage } = req.body;
+    const { firstName, lastName, bio, profileImage, profileTheme } = req.body;
 
     // Validate data
     const updateData = {};
@@ -133,8 +135,22 @@ router.patch("/me", authenticateJWT, async (req, res) => {
       updateData.profileImage = profileImage || null;
     }
 
+    if (profileTheme !== undefined) {
+      // allow any reasonable string
+      if (
+        profileTheme &&
+        (typeof profileTheme !== "string" || profileTheme.length > 50)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Theme must be a string of 50 characters or less" });
+      }
+      updateData.profileTheme = profileTheme || "default";
+    }
+
     const [updatedRowsCount] = await User.update(updateData, {
       where: { id: req.user.id },
+      validate: false,
     });
 
     if (updatedRowsCount === 0) {
@@ -154,6 +170,7 @@ router.patch("/me", authenticateJWT, async (req, res) => {
         "spotifyDisplayName",
         "spotifyProfileImage",
         "avatarURL",
+        "profileTheme",
         "createdAt",
       ],
     });
@@ -174,6 +191,105 @@ router.patch("/me", authenticateJWT, async (req, res) => {
   }
 });
 
+// Update current user's Spotify items
+router.patch("/spotify-items", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const items = req.body;
+    if (!Array.isArray(items) || items.length > 5) {
+      return res
+        .status(400)
+        .json({ error: "spotifyItems must be an array of up to 5 items." });
+    }
+    await User.update({ spotifyItems: items }, { where: { id: userId } });
+    const updatedUser = await User.findByPk(userId, {
+      attributes: [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
+    });
+    res.json({
+      message: "Spotify items updated successfully",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Error updating spotifyItems:", error);
+    res.status(500).json({ error: "Failed to update spotifyItems" });
+  }
+});
+
+// Get current user's theme
+router.get("/me/theme", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["profileTheme"],
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      theme: user.profileTheme || "default",
+      message: "Theme retrieved successfully",
+    });
+  } catch (error) {
+    console.error("Error fetching user theme:", error);
+    res.status(500).json({ error: "Failed to fetch theme" });
+  }
+});
+
+// get available themes
+router.get("/themes", async (req, res) => {
+  try {
+    const themes = [
+      "default",
+      "ocean",
+      "sunset",
+      "purple",
+      "forest",
+      "rose",
+      "sakura",
+      "lavender",
+      "peach",
+      "mint",
+      "cotton",
+      "sky",
+      "shadow",
+      "crimson",
+      "neon",
+      "void",
+      "electric",
+    ];
+
+    const themeCategories = {
+      original: ["default", "ocean", "sunset", "purple", "forest", "rose"],
+      pastel: ["sakura", "lavender", "peach", "mint", "cotton", "sky"],
+      dark: ["shadow", "crimson", "neon", "void", "electric"],
+    };
+
+    res.json({
+      themes: themes,
+      categories: themeCategories,
+      total: themes.length,
+    });
+  } catch (error) {
+    console.error("Error fetching themes:", error);
+    res.status(500).json({ error: "Failed to fetch themes" });
+  }
+});
+
 // Get public profile by username
 router.get("/:username", async (req, res) => {
   try {
@@ -189,7 +305,9 @@ router.get("/:username", async (req, res) => {
         "spotifyDisplayName",
         "spotifyProfileImage",
         "avatarURL",
+        "profileTheme",
         "createdAt",
+        "spotifyItems",
       ],
     });
 
@@ -280,10 +398,9 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
     }
 
     if (userToFollow.id === req.user.id) {
-      return res.status(400).json({ error: "Cannot follow yourself" });
+      return res.status(400).json({ error: "You cannot follow yourself" });
     }
 
-    // Check if already following
     const existingFollow = await Follows.findOne({
       where: {
         followerId: req.user.id,
@@ -293,111 +410,24 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
 
     if (existingFollow) {
       // Unfollow
-      await existingFollow.destroy();
-      res.json({ message: "Unfollowed successfully", following: false });
+      await Follows.destroy({
+        where: {
+          followerId: req.user.id,
+          followingId: userToFollow.id,
+        },
+      });
+      return res.json({ message: "Unfollowed successfully" });
     } else {
       // Follow
       await Follows.create({
         followerId: req.user.id,
         followingId: userToFollow.id,
       });
-      res.json({ message: "Followed successfully", following: true });
+      return res.json({ message: "Followed successfully" });
     }
   } catch (error) {
     console.error("Error following/unfollowing user:", error);
     res.status(500).json({ error: "Failed to follow/unfollow user" });
-  }
-});
-
-// Check if current user is following another user
-router.get("/:username/following-status", authenticateJWT, async (req, res) => {
-  try {
-    const userToCheck = await User.findOne({
-      where: { username: req.params.username },
-    });
-
-    if (!userToCheck) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const isFollowing = await Follows.findOne({
-      where: {
-        followerId: req.user.id,
-        followingId: userToCheck.id,
-      },
-    });
-
-    res.json({ following: !!isFollowing });
-  } catch (error) {
-    console.error("Error checking following status:", error);
-    res.status(500).json({ error: "Failed to check following status" });
-  }
-});
-
-// Get user's followers
-router.get("/:username/followers", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      where: { username: req.params.username },
-    });
-
-    if (!user) {
-      return res.status(404).json([]);
-    }
-
-    const followers = await Follows.findAll({
-      where: { followingId: user.id },
-      include: [
-        {
-          model: User,
-          as: "Follower", // ✅ explicitly use alias
-          attributes: [
-            "id",
-            "username",
-            "firstName",
-            "lastName",
-            "profileImage",
-            "spotifyProfileImage",
-            "avatarURL",
-          ],
-        },
-      ],
-    });
-
-    res.json(followers.map((f) => f.Follower));
-  } catch (error) {
-    console.error("Error fetching followers:", error);
-    res.status(500).json([]);
-  }
-});
-
-// Get user's following
-router.get("/:username/following", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      where: { username: req.params.username },
-    });
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    const following = await user.getFollowing({
-      attributes: [
-        "id",
-        "username",
-        "firstName",
-        "lastName",
-        "profileImage",
-        "spotifyProfileImage",
-        "avatarURL",
-      ],
-      joinTableAttributes: [], // hide join row
-      order: [["username", "ASC"]],
-      limit: 50,
-    });
-
-    res.json(following);
-  } catch (error) {
-    console.error("Error fetching following:", error);
-    res.status(500).json({ error: "Failed to fetch following" });
   }
 });
 
