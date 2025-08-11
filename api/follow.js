@@ -105,4 +105,28 @@ router.get("/:username/following", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch following" });
   }
 });
+
+//get all users who are following one another
+router.get("/:username/friends", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const followers = await user.getFollowers();
+    const following = await user.getFollowing();
+
+    const friends = followers.filter((follower) =>
+      following.some((followed) => followed.id === follower.id)
+    );
+
+    res.json(friends);
+  } catch (error) {
+    console.error("Error fetching mutual friends:", error);
+    res.status(500).json({ error: "Failed to fetch mutual friends" });
+  }
+});
+
 module.exports = router;
