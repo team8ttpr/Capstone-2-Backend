@@ -1,5 +1,5 @@
 const db = require("./db");
-const { User, Posts } = require("./index");
+const { User, Posts, PostLike } = require("./index");
 
 const seed = async () => {
   try {
