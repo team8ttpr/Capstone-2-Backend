@@ -112,6 +112,36 @@ const User = db.define("user", {
     defaultValue: [],
     field: 'spotify_items'
   },
+  showPosts: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'show_posts'
+  },
+  showUsername: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'show_username'
+  },
+  showDateJoined: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'show_date_joined'
+  },
+  showSpotifyStatus: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'show_spotify_status'
+  },
+  wallpaperURL: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: 'wallpaper_url',
+    defaultValue: null
+  },
 }, {
   tableName: 'users',
   underscored: true,
