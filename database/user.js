@@ -106,16 +106,22 @@ const User = db.define("user", {
       len: [1, 50] // Allow themes up to 50 characters
     }
   },
+  spotifyItems: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: [],
+    field: 'spotify_items'
+  },
 }, {
   tableName: 'users',
   underscored: true,
-  validate: {
-    mustHaveAuthMethod() {
-      if (!this.passwordHash && !this.spotifyId && !this.auth0Id) {
-        throw new Error('User must have at least one authentication method');
-      }
-    }
-  }
+  // validate: {
+  //   mustHaveAuthMethod() {
+  //     if (!this.passwordHash && !this.spotifyId && !this.auth0Id) {
+  //       throw new Error('User must have at least one authentication method');
+  //     }
+  //   }
+  //}
 });
 
 User.prototype.checkPassword = function (password) {

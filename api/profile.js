@@ -10,7 +10,7 @@ router.get("/me", authenticateJWT, async (req, res) => {
       attributes: [
         'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
         'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt'
+        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
       ]
     });
 
@@ -150,6 +150,29 @@ router.patch("/me", authenticateJWT, async (req, res) => {
   }
 });
 
+// Update current user's Spotify items
+router.patch("/spotify-items", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const items = req.body;
+    if (!Array.isArray(items) || items.length > 5) {
+      return res.status(400).json({ error: "spotifyItems must be an array of up to 5 items." });
+    }
+    await User.update({ spotifyItems: items }, { where: { id: userId } });
+    const updatedUser = await User.findByPk(userId, {
+      attributes: [
+        'id', 'username', 'email', 'firstName', 'lastName', 'bio',
+        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
+        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
+      ]
+    });
+    res.json({ message: "Spotify items updated successfully", user: updatedUser });
+  } catch (error) {
+    console.error("Error updating spotifyItems:", error);
+    res.status(500).json({ error: "Failed to update spotifyItems" });
+  }
+});
+
 // Get current user's theme
 router.get("/me/theme", authenticateJWT, async (req, res) => {
   try {
@@ -205,7 +228,7 @@ router.get("/:username", async (req, res) => {
       attributes: [
         'id', 'username', 'firstName', 'lastName', 'bio', 
         'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt'
+        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
       ]
     });
 
@@ -287,10 +310,9 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
     }
 
     if (userToFollow.id === req.user.id) {
-      return res.status(400).json({ error: "Cannot follow yourself" });
+      return res.status(400).json({ error: "You cannot follow yourself" });
     }
 
-    // Check if already following
     const existingFollow = await Follows.findOne({
       where: {
         followerId: req.user.id,
@@ -300,102 +322,24 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
 
     if (existingFollow) {
       // Unfollow
-      await existingFollow.destroy();
-      res.json({ message: "Unfollowed successfully", following: false });
+      await Follows.destroy({
+        where: {
+          followerId: req.user.id,
+          followingId: userToFollow.id
+        }
+      });
+      return res.json({ message: "Unfollowed successfully" });
     } else {
       // Follow
       await Follows.create({
         followerId: req.user.id,
         followingId: userToFollow.id
       });
-      res.json({ message: "Followed successfully", following: true });
+      return res.json({ message: "Followed successfully" });
     }
   } catch (error) {
     console.error("Error following/unfollowing user:", error);
     res.status(500).json({ error: "Failed to follow/unfollow user" });
-  }
-});
-
-// Check if current user is following another user
-router.get("/:username/following-status", authenticateJWT, async (req, res) => {
-  try {
-    const userToCheck = await User.findOne({
-      where: { username: req.params.username }
-    });
-
-    if (!userToCheck) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const isFollowing = await Follows.findOne({
-      where: {
-        followerId: req.user.id,
-        followingId: userToCheck.id
-      }
-    });
-
-    res.json({ following: !!isFollowing });
-  } catch (error) {
-    console.error("Error checking following status:", error);
-    res.status(500).json({ error: "Failed to check following status" });
-  }
-});
-
-// Get user's followers
-router.get("/:username/followers", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      where: { username: req.params.username }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const followers = await Follows.findAll({
-      where: { followingId: user.id },
-      include: [{
-        model: User,
-        as: 'follower',
-        attributes: ['id', 'username', 'firstName', 'lastName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 50
-    });
-
-    res.json(followers.map(follow => follow.follower));
-  } catch (error) {
-    console.error("Error fetching followers:", error);
-    res.status(500).json({ error: "Failed to fetch followers" });
-  }
-});
-
-// Get user's following
-router.get("/:username/following", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      where: { username: req.params.username }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const following = await Follows.findAll({
-      where: { followerId: user.id },
-      include: [{
-        model: User,
-        as: 'following',
-        attributes: ['id', 'username', 'firstName', 'lastName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 50
-    });
-
-    res.json(following.map(follow => follow.following));
-  } catch (error) {
-    console.error("Error fetching following:", error);
-    res.status(500).json({ error: "Failed to fetch following" });
   }
 });
 
