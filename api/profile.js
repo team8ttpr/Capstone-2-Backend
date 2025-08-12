@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { User, Posts, Follows } = require("../database");
 const { authenticateJWT } = require("../auth");
+const { Op } = require("sequelize");
 
 // Get current user's profile
 router.get("/me", authenticateJWT, async (req, res) => {
@@ -87,6 +88,36 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error("Error fetching user posts:", error);
     res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
+// GET all users beside logged in user
+router.get("/all", authenticateJWT, async (req, res) => {
+  try {
+    const users = await User.findAll({
+      where: {
+        id: { [Op.ne]: req.user.id },
+      },
+      attributes: [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
+    });
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 });
 
@@ -431,36 +462,35 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
   }
 });
 
-router.get("/", authenticateJWT, async (req, res) => {
+//Search all user
+router.get("/search", authenticateJWT, async (req, res) => {
+  console.log(
+    "[/api/profile/search] query:",
+    req.query.q,
+    "user:",
+    req.user?.id
+  );
   try {
-    const search = req.query.search?.trim().toLowerCase();
-    let where = {};
+    const q = (req.query.q || "").trim();
+    const meId = req.user.id;
+    const { Op } = require("sequelize");
 
-    if (search) {
-      where = {
-        username: { [require("sequelize").Op.iLike]: `%${search}%` },
-      };
+    const where = {
+      id: { [Op.ne]: meId },
+    };
+    if (q) {
+      where.username = { [Op.iLike]: `%${q}%` };
     }
 
     const users = await User.findAll({
       where,
-      attributes: [
-        "id",
-        "username",
-        "firstName",
-        "lastName",
-        "avatarURL",
-        "spotifyProfileImage",
-        "profileImage",
-      ],
-      limit: 50,
-      order: [["username", "ASC"]],
+      attributes: ["id", "username", "email"],
     });
 
     res.json(users);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ error: "Failed to fetch users" });
+  } catch (err) {
+    console.error("Error searching users:", err);
+    res.status(500).json({ error: "Failed to search users" });
   }
 });
 
