@@ -2,16 +2,27 @@ const express = require("express");
 const router = express.Router();
 const { User, Posts, Follows } = require("../database");
 const { authenticateJWT } = require("../auth");
+const { Op } = require("sequelize");
 
 // Get current user's profile
 router.get("/me", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
     });
 
     if (!user) {
@@ -20,17 +31,17 @@ router.get("/me", authenticateJWT, async (req, res) => {
 
     // Get post count
     const postCount = await Posts.count({
-      where: { userId: user.id, status: 'published' }
+      where: { userId: user.id, status: "published" },
     });
 
     // Get followers count
     const followersCount = await Follows.count({
-      where: { followingId: user.id }
+      where: { followingId: user.id },
     });
 
     // Get following count
     const followingCount = await Follows.count({
-      where: { followerId: user.id }
+      where: { followerId: user.id },
     });
 
     res.json({
@@ -38,8 +49,8 @@ router.get("/me", authenticateJWT, async (req, res) => {
       stats: {
         posts: postCount,
         followers: followersCount,
-        following: followingCount
-      }
+        following: followingCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching profile:", error);
@@ -51,17 +62,26 @@ router.get("/me", authenticateJWT, async (req, res) => {
 router.get("/me/posts", authenticateJWT, async (req, res) => {
   try {
     const posts = await Posts.findAll({
-      where: { 
+      where: {
         userId: req.user.id,
-        status: 'published'
+        status: "published",
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 20
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
 
     res.json(posts);
@@ -71,54 +91,102 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
   }
 });
 
+// GET all users beside logged in user
+router.get("/all", authenticateJWT, async (req, res) => {
+  try {
+    let where = {
+      id: { [Op.ne]: req.user.id },
+    };
+    // If user is authenticated, exclude their own user
+    if (req.user && req.user.id) {
+      where.id = { [Op.ne]: req.user.id };
+    }
+    const users = await User.findAll({
+      where,
+      attributes: [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
+    });
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 // Update current user's profile
 router.patch("/me", authenticateJWT, async (req, res) => {
   try {
     const { firstName, lastName, bio, profileImage, profileTheme } = req.body;
-    
+
     // Validate data
     const updateData = {};
-    
+
     if (firstName !== undefined) {
       if (firstName && firstName.length > 50) {
-        return res.status(400).json({ error: "First name must be 50 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "First name must be 50 characters or less" });
       }
       updateData.firstName = firstName || null;
     }
-    
+
     if (lastName !== undefined) {
       if (lastName && lastName.length > 50) {
-        return res.status(400).json({ error: "Last name must be 50 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "Last name must be 50 characters or less" });
       }
       updateData.lastName = lastName || null;
     }
-    
+
     if (bio !== undefined) {
       if (bio && bio.length > 500) {
-        return res.status(400).json({ error: "Bio must be 500 characters or less" });
+        return res
+          .status(400)
+          .json({ error: "Bio must be 500 characters or less" });
       }
       updateData.bio = bio || null;
     }
-    
+
     if (profileImage !== undefined) {
       // Basic URL validation
       if (profileImage && !profileImage.match(/^https?:\/\/.+/)) {
-        return res.status(400).json({ error: "Profile image must be a valid URL" });
+        return res
+          .status(400)
+          .json({ error: "Profile image must be a valid URL" });
       }
       updateData.profileImage = profileImage || null;
     }
 
     if (profileTheme !== undefined) {
       // allow any reasonable string
-      if (profileTheme && (typeof profileTheme !== 'string' || profileTheme.length > 50)) {
-        return res.status(400).json({ error: "Theme must be a string of 50 characters or less" });
+      if (
+        profileTheme &&
+        (typeof profileTheme !== "string" || profileTheme.length > 50)
+      ) {
+        return res
+          .status(400)
+          .json({ error: "Theme must be a string of 50 characters or less" });
       }
-      updateData.profileTheme = profileTheme || 'default';
+      updateData.profileTheme = profileTheme || "default";
     }
 
     const [updatedRowsCount] = await User.update(updateData, {
       where: { id: req.user.id },
-      validate: false 
+      validate: false,
     });
 
     if (updatedRowsCount === 0) {
@@ -128,24 +196,33 @@ router.patch("/me", authenticateJWT, async (req, res) => {
     // Fetch updated user
     const updatedUser = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+      ],
     });
 
     res.json(updatedUser);
   } catch (error) {
     console.error("Error updating profile:", error);
-    
-    if (error.name === 'SequelizeValidationError') {
-      const errorMessages = error.errors.map(err => err.message);
-      return res.status(400).json({ 
-        error: "Validation failed", 
-        details: errorMessages.join(', ')
+
+    if (error.name === "SequelizeValidationError") {
+      const errorMessages = error.errors.map((err) => err.message);
+      return res.status(400).json({
+        error: "Validation failed",
+        details: errorMessages.join(", "),
       });
     }
-    
+
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -156,17 +233,32 @@ router.patch("/spotify-items", authenticateJWT, async (req, res) => {
     const userId = req.user.id;
     const items = req.body;
     if (!Array.isArray(items) || items.length > 5) {
-      return res.status(400).json({ error: "spotifyItems must be an array of up to 5 items." });
+      return res
+        .status(400)
+        .json({ error: "spotifyItems must be an array of up to 5 items." });
     }
     await User.update({ spotifyItems: items }, { where: { id: userId } });
     const updatedUser = await User.findByPk(userId, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio',
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
     });
-    res.json({ message: "Spotify items updated successfully", user: updatedUser });
+    res.json({
+      message: "Spotify items updated successfully",
+      user: updatedUser,
+    });
   } catch (error) {
     console.error("Error updating spotifyItems:", error);
     res.status(500).json({ error: "Failed to update spotifyItems" });
@@ -177,16 +269,16 @@ router.patch("/spotify-items", authenticateJWT, async (req, res) => {
 router.get("/me/theme", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['profileTheme']
+      attributes: ["profileTheme"],
     });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ 
-      theme: user.profileTheme || 'default',
-      message: "Theme retrieved successfully"
+    res.json({
+      theme: user.profileTheme || "default",
+      message: "Theme retrieved successfully",
     });
   } catch (error) {
     console.error("Error fetching user theme:", error);
@@ -198,21 +290,35 @@ router.get("/me/theme", authenticateJWT, async (req, res) => {
 router.get("/themes", async (req, res) => {
   try {
     const themes = [
-      'default', 'ocean', 'sunset', 'purple', 'forest', 'rose',
-      'sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky',
-      'shadow', 'crimson', 'neon', 'void', 'electric'
+      "default",
+      "ocean",
+      "sunset",
+      "purple",
+      "forest",
+      "rose",
+      "sakura",
+      "lavender",
+      "peach",
+      "mint",
+      "cotton",
+      "sky",
+      "shadow",
+      "crimson",
+      "neon",
+      "void",
+      "electric",
     ];
 
     const themeCategories = {
-      original: ['default', 'ocean', 'sunset', 'purple', 'forest', 'rose'],
-      pastel: ['sakura', 'lavender', 'peach', 'mint', 'cotton', 'sky'],
-      dark: ['shadow', 'crimson', 'neon', 'void', 'electric']
+      original: ["default", "ocean", "sunset", "purple", "forest", "rose"],
+      pastel: ["sakura", "lavender", "peach", "mint", "cotton", "sky"],
+      dark: ["shadow", "crimson", "neon", "void", "electric"],
     };
 
     res.json({
       themes: themes,
       categories: themeCategories,
-      total: themes.length
+      total: themes.length,
     });
   } catch (error) {
     console.error("Error fetching themes:", error);
@@ -226,10 +332,19 @@ router.get("/:username", async (req, res) => {
     const user = await User.findOne({
       where: { username: req.params.username },
       attributes: [
-        'id', 'username', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems'
-      ]
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+      ],
     });
 
     if (!user) {
@@ -238,17 +353,17 @@ router.get("/:username", async (req, res) => {
 
     // Get post count
     const postCount = await Posts.count({
-      where: { userId: user.id, status: 'published', isPublic: true }
+      where: { userId: user.id, status: "published", isPublic: true },
     });
 
     // Get followers count
     const followersCount = await Follows.count({
-      where: { followingId: user.id }
+      where: { followingId: user.id },
     });
 
     // Get following count
     const followingCount = await Follows.count({
-      where: { followerId: user.id }
+      where: { followerId: user.id },
     });
 
     res.json({
@@ -256,8 +371,8 @@ router.get("/:username", async (req, res) => {
       stats: {
         posts: postCount,
         followers: followersCount,
-        following: followingCount
-      }
+        following: followingCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching public profile:", error);
@@ -269,7 +384,7 @@ router.get("/:username", async (req, res) => {
 router.get("/:username/posts", async (req, res) => {
   try {
     const user = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!user) {
@@ -277,18 +392,27 @@ router.get("/:username/posts", async (req, res) => {
     }
 
     const posts = await Posts.findAll({
-      where: { 
+      where: {
         userId: user.id,
-        status: 'published',
-        isPublic: true
+        status: "published",
+        isPublic: true,
       },
-      include: [{
-        model: User,
-        as: 'author',
-        attributes: ['id', 'username', 'spotifyDisplayName', 'profileImage', 'spotifyProfileImage', 'avatarURL']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit: 20
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 20,
     });
 
     res.json(posts);
@@ -302,7 +426,7 @@ router.get("/:username/posts", async (req, res) => {
 router.post("/:username/follow", authenticateJWT, async (req, res) => {
   try {
     const userToFollow = await User.findOne({
-      where: { username: req.params.username }
+      where: { username: req.params.username },
     });
 
     if (!userToFollow) {
@@ -316,8 +440,8 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
     const existingFollow = await Follows.findOne({
       where: {
         followerId: req.user.id,
-        followingId: userToFollow.id
-      }
+        followingId: userToFollow.id,
+      },
     });
 
     if (existingFollow) {
@@ -325,21 +449,53 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
       await Follows.destroy({
         where: {
           followerId: req.user.id,
-          followingId: userToFollow.id
-        }
+          followingId: userToFollow.id,
+        },
       });
       return res.json({ message: "Unfollowed successfully" });
     } else {
       // Follow
       await Follows.create({
         followerId: req.user.id,
-        followingId: userToFollow.id
+        followingId: userToFollow.id,
       });
       return res.json({ message: "Followed successfully" });
     }
   } catch (error) {
     console.error("Error following/unfollowing user:", error);
     res.status(500).json({ error: "Failed to follow/unfollow user" });
+  }
+});
+
+//Search all user
+router.get("/search", authenticateJWT, async (req, res) => {
+  console.log(
+    "[/api/profile/search] query:",
+    req.query.q,
+    "user:",
+    req.user?.id
+  );
+  try {
+    const q = (req.query.q || "").trim();
+    const meId = req.user.id;
+    const { Op } = require("sequelize");
+
+    const where = {
+      id: { [Op.ne]: meId },
+    };
+    if (q) {
+      where.username = { [Op.iLike]: `%${q}%` };
+    }
+
+    const users = await User.findAll({
+      where,
+      attributes: ["id", "username", "email"],
+    });
+
+    res.json(users);
+  } catch (err) {
+    console.error("Error searching users:", err);
+    res.status(500).json({ error: "Failed to search users" });
   }
 });
 
