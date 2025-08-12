@@ -431,4 +431,37 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
   }
 });
 
+router.get("/", authenticateJWT, async (req, res) => {
+  try {
+    const search = req.query.search?.trim().toLowerCase();
+    let where = {};
+
+    if (search) {
+      where = {
+        username: { [require("sequelize").Op.iLike]: `%${search}%` },
+      };
+    }
+
+    const users = await User.findAll({
+      where,
+      attributes: [
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "avatarURL",
+        "spotifyProfileImage",
+        "profileImage",
+      ],
+      limit: 50,
+      order: [["username", "ASC"]],
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
 module.exports = router;
