@@ -94,10 +94,15 @@ router.get("/me/posts", authenticateJWT, async (req, res) => {
 // GET all users beside logged in user
 router.get("/all", authenticateJWT, async (req, res) => {
   try {
+    let where = {
+      id: { [Op.ne]: req.user.id },
+    };
+    // If user is authenticated, exclude their own user
+    if (req.user && req.user.id) {
+      where.id = { [Op.ne]: req.user.id };
+    }
     const users = await User.findAll({
-      where: {
-        id: { [Op.ne]: req.user.id },
-      },
+      where,
       attributes: [
         "id",
         "username",
