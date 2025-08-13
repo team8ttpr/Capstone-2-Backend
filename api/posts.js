@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Posts, User, PostLike } = require("../database");
+const { Posts, User, PostLike, Comments } = require("../database");
 const { authenticateJWT } = require("../auth");
 
 // Get all published posts (public feed)
@@ -211,11 +211,12 @@ router.get("/published", authenticateJWT, async (req, res) => {
 });
 
 //get a single post by ID
-router.get("/:id", async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const userId = req.user?.id;
+    const postId = req.params.id;
     
-    const post = await Posts.findByPk(req.params.id, {
+    const post = await Posts.findByPk(postId, {
       include: [
         {
           model: User,
@@ -238,17 +239,18 @@ router.get("/:id", async (req, res) => {
             attributes: ["id"]
           }]
         }
-      ],
+      ]
     });
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
+
     const postData = post.toJSON();
     postData.likesCount = postData.likes ? postData.likes.length : 0;
     postData.isLiked = userId ? 
       postData.likes?.some(like => like.user.id === userId) : false;
-
+    
     res.json(postData);
   } catch (error) {
     console.error("Error fetching post:", error);
