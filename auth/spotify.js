@@ -38,7 +38,7 @@ const refreshSpotifyToken = async (user) => {
     );
 
     const { access_token, expires_in } = response.data;
-    
+
     await user.update({
       spotifyAccessToken: access_token,
       spotifyTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
@@ -70,10 +70,11 @@ const getValidSpotifyToken = async (user) => {
 
 //this creates the username for a user based on the username provided by spotify
 const generateUsername = async (spotifyProfile) => {
-  let baseUsername = spotifyProfile.display_name || spotifyProfile.id || 'spotify_user';
-  
+  let baseUsername =
+    spotifyProfile.display_name || spotifyProfile.id || "spotify_user";
+
   baseUsername = baseUsername
-    .replace(/[^a-zA-Z0-9_]/g, '_')
+    .replace(/[^a-zA-Z0-9_]/g, "_")
     .substring(0, 15)
     .toLowerCase();
 
@@ -87,13 +88,13 @@ const generateUsername = async (spotifyProfile) => {
 
   let finalUsername = baseUsername;
   let counter = 1;
-  
+
   while (await User.findOne({ where: { username: finalUsername } })) {
     const suffix = `_${counter}`;
     const maxLength = 20 - suffix.length;
     finalUsername = baseUsername.substring(0, maxLength) + suffix;
     counter++;
-    
+
     if (counter > 1000) {
       finalUsername = `spotify_${Date.now()}`.substring(0, 20);
       break;
@@ -107,22 +108,25 @@ const generateUsername = async (spotifyProfile) => {
 router.get("/login-url", (req, res) => {
   try {
     const scopes = [
-      'user-read-private',
-      'user-read-email',
-      'user-top-read',
-      'user-read-recently-played',
-      'playlist-read-private',
-      'playlist-read-collaborative'
-    ].join(' ');
+      "user-read-private",
+      "user-read-email",
+      "user-top-read",
+      "user-read-recently-played",
+      "playlist-read-private",
+      "playlist-read-collaborative",
+      "playlist-modify-public",
+      "playlist-modify-private",
+    ].join(" ");
 
-    const authUrl = 'https://accounts.spotify.com/authorize?' + 
+    const authUrl =
+      "https://accounts.spotify.com/authorize?" +
       new URLSearchParams({
-        response_type: 'code',
+        response_type: "code",
         client_id: SPOTIFY_CLIENT_ID,
         scope: scopes,
         redirect_uri: `${FRONTEND_URL}/callback/spotify`,
-        state: 'spotify_login',
-        show_dialog: true
+        state: "spotify_login",
+        show_dialog: true,
       });
 
     res.json({ authUrl });
@@ -136,22 +140,25 @@ router.get("/login-url", (req, res) => {
 router.get("/auth-url", authenticateJWT, (req, res) => {
   try {
     const scopes = [
-      'user-read-private',
-      'user-read-email',
-      'user-top-read',
-      'user-read-recently-played',
-      'playlist-read-private',
-      'playlist-read-collaborative'
-    ].join(' ');
+      "user-read-private",
+      "user-read-email",
+      "user-top-read",
+      "user-read-recently-played",
+      "playlist-read-private",
+      "playlist-read-collaborative",
+      "playlist-modify-public",
+      "playlist-modify-private",
+    ].join(" ");
 
-    const authUrl = 'https://accounts.spotify.com/authorize?' + 
+    const authUrl =
+      "https://accounts.spotify.com/authorize?" +
       new URLSearchParams({
-        response_type: 'code',
+        response_type: "code",
         client_id: SPOTIFY_CLIENT_ID,
         scope: scopes,
         redirect_uri: `${FRONTEND_URL}/callback/spotify`,
         state: req.user.id.toString(),
-        show_dialog: true
+        show_dialog: true,
       });
 
     res.json({ authUrl });
@@ -228,21 +235,23 @@ router.post("/login", async (req, res) => {
 
         user = await User.create(userData);
       } catch (validationError) {
-        if (validationError.name === 'SequelizeValidationError') {
-          const errorMessages = validationError.errors.map(err => err.message);
-          return res.status(400).json({ 
-            error: "User validation failed", 
-            details: errorMessages.join(', ')
+        if (validationError.name === "SequelizeValidationError") {
+          const errorMessages = validationError.errors.map(
+            (err) => err.message
+          );
+          return res.status(400).json({
+            error: "User validation failed",
+            details: errorMessages.join(", "),
           });
         }
-        
-        if (validationError.name === 'SequelizeUniqueConstraintError') {
-          return res.status(400).json({ 
-            error: "User already exists with this data", 
-            details: validationError.message 
+
+        if (validationError.name === "SequelizeUniqueConstraintError") {
+          return res.status(400).json({
+            error: "User already exists with this data",
+            details: validationError.message,
           });
         }
-        
+
         throw validationError;
       }
     } else {
@@ -250,8 +259,10 @@ router.post("/login", async (req, res) => {
         spotifyAccessToken: access_token,
         spotifyRefreshToken: refresh_token,
         spotifyTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
-        spotifyDisplayName: spotifyProfile.display_name || user.spotifyDisplayName,
-        spotifyProfileImage: spotifyProfile.images?.[0]?.url || user.spotifyProfileImage,
+        spotifyDisplayName:
+          spotifyProfile.display_name || user.spotifyDisplayName,
+        spotifyProfileImage:
+          spotifyProfile.images?.[0]?.url || user.spotifyProfileImage,
       });
     }
 
@@ -267,7 +278,7 @@ router.post("/login", async (req, res) => {
     );
 
     res.cookie("token", token, cookieSettings);
-    
+
     res.json({
       message: "Spotify login successful",
       token: token,
@@ -279,17 +290,18 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Spotify login error:", error.message);
-    
+
     if (error.response?.status === 400) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Invalid authorization code or expired",
-        details: error.response?.data 
+        details: error.response?.data,
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: "Failed to login with Spotify",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -355,7 +367,7 @@ router.post("/callback", authenticateJWT, async (req, res) => {
 router.get("/profile", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
-    
+
     if (!user.spotifyId) {
       return res.json({ connected: false });
     }
@@ -365,7 +377,9 @@ router.get("/profile", authenticateJWT, async (req, res) => {
       profile: {
         id: user.spotifyId,
         display_name: user.spotifyDisplayName,
-        images: user.spotifyProfileImage ? [{ url: user.spotifyProfileImage }] : [],
+        images: user.spotifyProfileImage
+          ? [{ url: user.spotifyProfileImage }]
+          : [],
       },
     });
   } catch (error) {
@@ -381,15 +395,18 @@ router.get("/top-tracks", authenticateJWT, async (req, res) => {
     const accessToken = await getValidSpotifyToken(user);
     const timeRange = req.query.time_range || "long_term";
 
-    const response = await axios.get("https://api.spotify.com/v1/me/top/tracks", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      params: {
-        limit: 20,
-        time_range: timeRange,
-      },
-    });
+    const response = await axios.get(
+      "https://api.spotify.com/v1/me/top/tracks",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        params: {
+          limit: 20,
+          time_range: timeRange,
+        },
+      }
+    );
 
     res.json(response.data);
   } catch (error) {
@@ -406,46 +423,53 @@ router.get("/top-artists", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
     const accessToken = await getValidSpotifyToken(user);
-    
+
     const timeRanges = ["short_term", "medium_term", "long_term"];
     let bestResult = null;
-    
+
     for (const timeRange of timeRanges) {
       try {
-        const response = await axios.get("https://api.spotify.com/v1/me/top/artists", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          params: {
-            limit: 20,
-            time_range: timeRange,
-          },
-        });
-        
+        const response = await axios.get(
+          "https://api.spotify.com/v1/me/top/artists",
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            params: {
+              limit: 20,
+              time_range: timeRange,
+            },
+          }
+        );
+
         if (response.data.items.length > 0) {
           return res.json({
             ...response.data,
-            time_range_used: timeRange
+            time_range_used: timeRange,
           });
         }
-        
+
         if (!bestResult) {
           bestResult = {
             ...response.data,
-            time_range_used: timeRange
+            time_range_used: timeRange,
           };
         }
       } catch (error) {
-        console.error(`Error getting top artists for ${timeRange}:`, error.message);
+        console.error(
+          `Error getting top artists for ${timeRange}:`,
+          error.message
+        );
       }
     }
-    
-    res.json(bestResult || {
-      items: [],
-      total: 0,
-      message: "No listening history found for artists."
-    });
-    
+
+    res.json(
+      bestResult || {
+        items: [],
+        total: 0,
+        message: "No listening history found for artists.",
+      }
+    );
   } catch (error) {
     if (error.message === "Spotify not connected") {
       return res.status(401).json({ error: "Spotify not connected" });
@@ -461,15 +485,18 @@ router.get("/playlists", authenticateJWT, async (req, res) => {
     const user = await User.findByPk(req.user.id);
     const accessToken = await getValidSpotifyToken(user);
 
-    const response = await axios.get("https://api.spotify.com/v1/me/playlists", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      params: {
-        limit: 50, // Get up to 50 playlists
-        offset: 0,
-      },
-    });
+    const response = await axios.get(
+      "https://api.spotify.com/v1/me/playlists",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        params: {
+          limit: 50, // Get up to 50 playlists
+          offset: 0,
+        },
+      }
+    );
 
     res.json(response.data);
   } catch (error) {
@@ -488,11 +515,14 @@ router.get("/playlists/:id", authenticateJWT, async (req, res) => {
     const accessToken = await getValidSpotifyToken(user);
     const playlistId = req.params.id;
 
-    const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const response = await axios.get(
+      `https://api.spotify.com/v1/playlists/${playlistId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
 
     res.json(response.data);
   } catch (error) {
@@ -511,15 +541,18 @@ router.get("/playlists/:id/tracks", authenticateJWT, async (req, res) => {
     const accessToken = await getValidSpotifyToken(user);
     const playlistId = req.params.id;
 
-    const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      params: {
-        limit: 100,
-        offset: 0,
-      },
-    });
+    const response = await axios.get(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        params: {
+          limit: 100,
+          offset: 0,
+        },
+      }
+    );
 
     res.json(response.data);
   } catch (error) {
