@@ -1,5 +1,5 @@
 const db = require("./db");
-const { User, Posts, Follows, PostLike } = require("./index");
+const { User, Posts, Follows, PostLike, Comments } = require("./index");
 
 const seed = async () => {
   try {
@@ -58,37 +58,36 @@ const seed = async () => {
       },
     ]);
 
-    // Make all users follow each other
     const followData = [
       // Admin follows user1, user2, user3, user4
-      { followerId: users[0].id, followingId: users[1].id },
-      { followerId: users[0].id, followingId: users[2].id },
-      { followerId: users[0].id, followingId: users[3].id },
-      { followerId: users[0].id, followingId: users[4].id },
+      { follower_id: users[0].id, following_id: users[1].id },
+      { follower_id: users[0].id, following_id: users[2].id },
+      { follower_id: users[0].id, following_id: users[3].id },
+      { follower_id: users[0].id, following_id: users[4].id },
 
       // user1 follows admin, user2, user3, user4
-      { followerId: users[1].id, followingId: users[0].id },
-      { followerId: users[1].id, followingId: users[2].id },
-      { followerId: users[1].id, followingId: users[3].id },
-      { followerId: users[1].id, followingId: users[4].id },
+      { follower_id: users[1].id, following_id: users[0].id },
+      { follower_id: users[1].id, following_id: users[2].id },
+      { follower_id: users[1].id, following_id: users[3].id },
+      { follower_id: users[1].id, following_id: users[4].id },
 
       // user2 follows admin, user1, user3, user4
-      { followerId: users[2].id, followingId: users[0].id },
-      { followerId: users[2].id, followingId: users[1].id },
-      { followerId: users[2].id, followingId: users[3].id },
-      { followerId: users[2].id, followingId: users[4].id },
+      { follower_id: users[2].id, following_id: users[0].id },
+      { follower_id: users[2].id, following_id: users[1].id },
+      { follower_id: users[2].id, following_id: users[3].id },
+      { follower_id: users[2].id, following_id: users[4].id },
 
       // user3 follows admin, user1, user2, user4
-      { followerId: users[3].id, followingId: users[0].id },
-      { followerId: users[3].id, followingId: users[1].id },
-      { followerId: users[3].id, followingId: users[2].id },
-      { followerId: users[3].id, followingId: users[4].id },
+      { follower_id: users[3].id, following_id: users[0].id },
+      { follower_id: users[3].id, following_id: users[1].id },
+      { follower_id: users[3].id, following_id: users[2].id },
+      { follower_id: users[3].id, following_id: users[4].id },
 
       // user4 follows admin, user1, user2, user3
-      { followerId: users[4].id, followingId: users[0].id },
-      { followerId: users[4].id, followingId: users[1].id },
-      { followerId: users[4].id, followingId: users[2].id },
-      { followerId: users[4].id, followingId: users[3].id },
+      { follower_id: users[4].id, following_id: users[0].id },
+      { follower_id: users[4].id, following_id: users[1].id },
+      { follower_id: users[4].id, following_id: users[2].id },
+      { follower_id: users[4].id, following_id: users[3].id },
     ];
 
     await Follows.bulkCreate(followData);
@@ -335,7 +334,55 @@ const seed = async () => {
     ]);
 
     console.log(`📝 Created ${posts.length} posts`);
-    console.log("🌱 Seeded the database");
+
+    const comments = await Comments.bulkCreate([
+      {
+        post_id: 1,
+        user_id: 2,
+        content: "Love this admin vibe! Great selection of tracks.",
+        parent_id: null,
+      },
+      {
+        post_id: 1,
+        user_id: 3,
+        content: "Admin always has the best music taste!",
+        parent_id: null,
+      },
+      {
+        post_id: 2,
+        user_id: 4,
+        content: "This lo-fi playlist is perfect for work. Thanks for sharing!",
+        parent_id: null,
+      },
+      {
+        post_id: 2,
+        user_id: 1,
+        content: "Thanks! I use this every day while coding.",
+        parent_id: 3, 
+      },
+      {
+        post_id: 6,
+        user_id: 1,
+        content: "Late night drives with this track hit different 🚗",
+        parent_id: null,
+      },
+      {
+        post_id: 6,
+        user_id: 3,
+        content: "Totally agree! Perfect vibe for cruising.",
+        parent_id: 5,
+      },
+      {
+        post_id: 11,
+        user_id: 2,
+        content: "2000s hits are the best! This takes me back.",
+        parent_id: null,
+      },
+    ]);
+
+    console.log(`💬 Created ${comments.length} comments`);
+    console.log("🌱 Seeded the database successfully!");
+    
   } catch (error) {
     console.error("Error seeding database:", error);
   } finally {
