@@ -1,60 +1,62 @@
 const express = require("express");
 const router = express.Router();
-const { Posts, User } = require("../database");
+const { Posts, User, PostLike } = require("../database");
 const { authenticateJWT } = require("../auth");
 
 // Get all published posts (public feed)
 router.get("/feed", async (req, res) => {
   try {
+    const userId = req.user?.id;
+    
     const posts = await Posts.findAll({
-      where: {
+      where: { 
         status: "published",
-        isPublic: true,
+        isPublic: true 
       },
       include: [
         {
           model: User,
           as: "author",
           attributes: [
-            "id",
             "username",
+            "id",
             "spotifyDisplayName",
             "profileImage",
             "spotifyProfileImage",
             "avatarURL",
           ],
         },
-      ],
-      order: [["createdAt", "DESC"]],
-      limit: 20,
-      include: [
         {
-          model: User,
-          as: "author",
-          attributes: [
-            "id",
-            "username",
-            "spotifyDisplayName",
-            "profileImage",
-            "spotifyProfileImage",
-            "avatarURL",
-          ],
-        },
+          model: PostLike,
+          as: "likes",
+          include: [{
+            model: User,
+            as: "user",
+            attributes: ["id"]
+          }]
+        }
       ],
       order: [["createdAt", "DESC"]],
-      limit: 20,
     });
 
-    res.json(posts);
+    const postsWithLikeInfo = posts.map(post => {
+      const postData = post.toJSON();
+      postData.likesCount = postData.likes ? postData.likes.length : 0;
+      postData.isLiked = userId ? 
+        postData.likes?.some(like => like.user.id === userId) : false;
+      return postData;
+    });
+
+    res.json(postsWithLikeInfo);
   } catch (error) {
     console.error("Error fetching feed posts:", error);
-    res.status(500).json({ error: "Failed to fetch feed posts" });
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 
-// Get all posts (public)
 router.get("/", async (req, res) => {
   try {
+    const userId = req.user?.id; 
     const posts = await Posts.findAll({
       where: { isPublic: true },
       include: [
@@ -70,18 +72,32 @@ router.get("/", async (req, res) => {
             "avatarURL",
           ],
         },
+        {
+          model: PostLike,
+          as: "likes",
+          include: [{
+            model: User,
+            as: "user",
+            attributes: ["id"]
+          }]
+        }
       ],
       order: [["createdAt", "DESC"]],
     });
-    res.json(posts);
+
+    const postsWithLikeInfo = posts.map(post => {
+      const postData = post.toJSON();
+      postData.likesCount = postData.likes ? postData.likes.length : 0;
+      postData.isLiked = userId ? 
+        postData.likes?.some(like => like.user.id === userId) : false;
+      return postData;
+    });
+
+    res.json(postsWithLikeInfo);
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({ error: "Failed to fetch posts" });
   }
-});
-
-router.get("/test", (req, res) => {
-  res.send("posts test route OK");
 });
 
 // Get posts if status === draft
@@ -119,28 +135,47 @@ router.get("/draft", authenticateJWT, async (req, res) => {
 router.get("/my", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
+    
     const posts = await Posts.findAll({
-      where: { userId },
+      where: { userId: req.user.id },
       include: [
         {
           model: User,
           as: "author",
           attributes: [
-            "id",
             "username",
+            "id",
             "spotifyDisplayName",
             "profileImage",
             "spotifyProfileImage",
             "avatarURL",
           ],
         },
+        {
+          model: PostLike,
+          as: "likes",
+          include: [{
+            model: User,
+            as: "user",
+            attributes: ["id"]
+          }]
+        }
       ],
       order: [["createdAt", "DESC"]],
     });
-    res.json(posts);
+
+    const postsWithLikeInfo = posts.map(post => {
+      const postData = post.toJSON();
+      postData.likesCount = postData.likes ? postData.likes.length : 0;
+      postData.isLiked = userId ? 
+        postData.likes?.some(like => like.user.id === userId) : false;
+      return postData;
+    });
+
+    res.json(postsWithLikeInfo);
   } catch (error) {
-    console.error("Error fetching posts:", error);
-    res.status(500).json({ error: "Failed to fetch posts" });
+    console.error("Error fetching user posts:", error);
+    res.status(500).json({ error: "Failed to fetch user posts" });
   }
 });
 
@@ -178,8 +213,9 @@ router.get("/published", authenticateJWT, async (req, res) => {
 //get a single post by ID
 router.get("/:id", async (req, res) => {
   try {
-    const postId = req.params.id;
-    const post = await Posts.findByPk(postId, {
+    const userId = req.user?.id;
+    
+    const post = await Posts.findByPk(req.params.id, {
       include: [
         {
           model: User,
@@ -193,14 +229,27 @@ router.get("/:id", async (req, res) => {
             "avatarURL",
           ],
         },
+        {
+          model: PostLike,
+          as: "likes",
+          include: [{
+            model: User,
+            as: "user",
+            attributes: ["id"]
+          }]
+        }
       ],
     });
 
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
+    const postData = post.toJSON();
+    postData.likesCount = postData.likes ? postData.likes.length : 0;
+    postData.isLiked = userId ? 
+      postData.likes?.some(like => like.user.id === userId) : false;
 
-    res.json(post);
+    res.json(postData);
   } catch (error) {
     console.error("Error fetching post:", error);
     res.status(500).json({ error: "Failed to fetch post" });
@@ -484,22 +533,37 @@ router.patch("/:id/publish", authenticateJWT, async (req, res) => {
 });
 
 // Like/Unlike a post
-router.post("/:id/like", authenticateJWT, async (req, res) => {
+router.post('/:postId/like', authenticateJWT, async (req, res) => {
   try {
-    const post = await Posts.findByPk(req.params.id);
+    const { postId } = req.params;
+    const userId = req.user.id;
 
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
+    const existingLike = await PostLike.findOne({
+      where: { postId, userId }
+    });
+
+    let isLiked;
+    if (existingLike) {
+      await existingLike.destroy();
+      isLiked = false;
+    } else {
+      await PostLike.create({ postId, userId });
+      isLiked = true;
     }
 
-    // Simple like increment (you can make this more sophisticated later)
-    await post.increment("likesCount");
-    await post.reload();
+    const likesCount = await PostLike.count({
+      where: { postId }
+    });
+    
+    res.json({
+      success: true,
+      isLiked,
+      likesCount
+    });
 
-    res.json({ message: "Post liked", likesCount: post.likesCount });
   } catch (error) {
-    console.error("Error liking post:", error);
-    res.status(500).json({ error: "Failed to like post" });
+    console.error('Error liking post:', error);
+    res.status(500).json({ error: 'Failed to like post' });
   }
 });
 

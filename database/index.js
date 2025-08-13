@@ -4,14 +4,15 @@ const Posts = require("./posts");
 const Follows = require("./follows");
 const Sticker = require("./sticker");
 const UserProfileSticker = require("./userProfileSticker");
+const PostLike = require("./postLikes");
 
 User.hasMany(Posts, {
-  foreignKey: "user_id",
+  foreignKey: "userId",
   as: "posts",
 });
 
 Posts.belongsTo(User, {
-  foreignKey: "user_id",
+  foreignKey: "userId",
   as: "author",
 });
 
@@ -30,14 +31,20 @@ User.belongsToMany(User, {
 });
 
 Follows.belongsTo(User, {
-  foreignKey: 'follower_id',
-  as: 'follower'
+  foreignKey: "follower_id",
+  as: "follower",
 });
 
 Follows.belongsTo(User, {
-  foreignKey: 'following_id',
-  as: 'following'
+  foreignKey: "following_id",
+  as: "following",
 });
+
+//Post Likes associations
+Posts.hasMany(PostLike, { foreignKey: "postId", as: "likes" });
+PostLike.belongsTo(Posts, { foreignKey: "postId", as: "post" });
+User.hasMany(PostLike, { foreignKey: "userId", as: "userLikes" });
+PostLike.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 // Sticker associations
 User.hasMany(Sticker, {
@@ -93,4 +100,5 @@ module.exports = {
   Follows,
   Sticker,
   UserProfileSticker,
+  PostLike,
 };
