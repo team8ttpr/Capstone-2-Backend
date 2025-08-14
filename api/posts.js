@@ -221,6 +221,77 @@ router.get("/", async (req, res) => {
   }
 });
 
+// my post route
+router.get("/my", authenticateJWT, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const posts = await Posts.findAll({
+      where: { userId },
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: [
+            "id", "username", "spotifyDisplayName", "profileImage",
+            "spotifyProfileImage", "avatarURL"
+          ],
+        },
+        {
+          model: PostLike,
+          as: "likes",
+          include: [{
+            model: User,
+            as: "user",
+            attributes: ["id"]
+          }]
+        },
+        {
+          model: Comments,
+          as: "comments",
+          include: [{
+            model: User,
+            as: "author",
+            attributes: ["id", "username", "profileImage"]
+          }]
+        }
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    const postsWithLikes = posts.map(post => {
+      const postData = post.toJSON();
+      postData.likesCount = postData.likes ? postData.likes.length : 0;
+      postData.isLiked = postData.likes?.some(like => like.user.id === userId) || false;
+      postData.commentsCount = postData.comments ? postData.comments.length : 0;
+      return postData;
+    });
+
+    res.json(postsWithLikes);
+  } catch (error) {
+    console.error("Error fetching user's posts:", error);
+    res.status(500).json({ error: "Failed to fetch your posts" });
+  }
+});
+
+router.patch("/:id", authenticateJWT, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.id;
+    const updateData = req.body;
+
+    const post = await Posts.findOne({ where: { id: postId, userId } });
+    if (!post) {
+      return res.status(404).json({ error: "Post not found or not authorized" });
+    }
+
+    await post.update(updateData);
+    res.json({ success: true, post });
+  } catch (error) {
+    console.error("Error updating post:", error);
+    res.status(500).json({ error: "Failed to update post" });
+  }
+});
+
 // Get posts if status === draft
 router.get("/draft", authenticateJWT, async (req, res) => {
   try {

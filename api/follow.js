@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { User, Posts, Follows } = require("../database");
 const { authenticateJWT } = require("../auth");
-const { Op } = require("sequelize");
 
 // Check if current user is following another user
 router.get("/:username/following-status", authenticateJWT, async (req, res) => {
