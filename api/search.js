@@ -1,5 +1,7 @@
 const express = require("express");
 const axios = require("axios");
+const { authenticateJWT } = require("../auth");
+const { User } = require("../database");
 
 const router = express.Router();
 
@@ -8,6 +10,53 @@ const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
 let spotifyAccessToken = null;
 let tokenExpiresAt = null;
+
+const refreshSpotifyToken = async (user) => {
+  try {
+    const response = await axios.post(
+      "https://accounts.spotify.com/api/token",
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: user.spotifyRefreshToken,
+        client_id: SPOTIFY_CLIENT_ID,
+        client_secret: SPOTIFY_CLIENT_SECRET,
+      }),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
+
+    const { access_token, expires_in } = response.data;
+
+    await user.update({
+      spotifyAccessToken: access_token,
+      spotifyTokenExpiresAt: new Date(Date.now() + expires_in * 1000),
+    });
+
+    return access_token;
+  } catch (error) {
+    console.error("Failed to refresh Spotify token:", error.message);
+    throw new Error("Token refresh failed");
+  }
+};
+
+const getValidSpotifyToken = async (user) => {
+  if (!user.spotifyAccessToken) {
+    throw new Error("Spotify not connected");
+  }
+
+  if (user.isSpotifyTokenValid()) {
+    return user.spotifyAccessToken;
+  }
+
+  if (!user.spotifyRefreshToken) {
+    throw new Error("Spotify not connected");
+  }
+
+  return await refreshSpotifyToken(user);
+};
 
 const getSpotifyClientToken = async () => {
   try {
@@ -42,16 +91,18 @@ const getSpotifyClientToken = async () => {
 
 const formatTracks = (tracks) => {
   if (!tracks || !tracks.items) return [];
-  
   return tracks.items
-    .filter(track => track && track.id && track.name)
-    .map(track => ({
+    .filter((track) => track && track.id && track.name)
+    .map((track) => ({
       id: track.id,
       name: track.name,
       type: "track",
-      author: track.artists && track.artists.length > 0 
-        ? track.artists.map(artist => artist?.name || "Unknown Artist").join(", ")
-        : "Unknown Artist",
+      author:
+        track.artists && track.artists.length > 0
+          ? track.artists
+              .map((artist) => artist?.name || "Unknown Artist")
+              .join(", ")
+          : "Unknown Artist",
       image: track.album?.images?.[0]?.url || null,
       spotify_url: track.external_urls?.spotify || null,
       preview_url: track.preview_url || null,
@@ -62,10 +113,9 @@ const formatTracks = (tracks) => {
 
 const formatArtists = (artists) => {
   if (!artists || !artists.items) return [];
-  
   return artists.items
-    .filter(artist => artist && artist.id && artist.name)
-    .map(artist => ({
+    .filter((artist) => artist && artist.id && artist.name)
+    .map((artist) => ({
       id: artist.id,
       name: artist.name,
       type: "artist",
@@ -79,16 +129,18 @@ const formatArtists = (artists) => {
 
 const formatAlbums = (albums) => {
   if (!albums || !albums.items) return [];
-  
   return albums.items
-    .filter(album => album && album.id && album.name)
-    .map(album => ({
+    .filter((album) => album && album.id && album.name)
+    .map((album) => ({
       id: album.id,
       name: album.name,
       type: "album",
-      author: album.artists && album.artists.length > 0 
-        ? album.artists.map(artist => artist?.name || "Unknown Artist").join(", ")
-        : "Unknown Artist",
+      author:
+        album.artists && album.artists.length > 0
+          ? album.artists
+              .map((artist) => artist?.name || "Unknown Artist")
+              .join(", ")
+          : "Unknown Artist",
       image: album.images?.[0]?.url || null,
       spotify_url: album.external_urls?.spotify || null,
       release_date: album.release_date || null,
@@ -99,14 +151,13 @@ const formatAlbums = (albums) => {
 
 const formatPlaylists = (playlists) => {
   if (!playlists || !playlists.items) return [];
-  
   return playlists.items
-    .filter(playlist => playlist && playlist.id && playlist.name)
-    .map(playlist => ({
+    .filter((playlist) => playlist && playlist.id && playlist.name)
+    .map((playlist) => ({
       id: playlist.id,
       name: playlist.name,
       type: "playlist",
-      author: playlist.owner?.display_name || "Unknown",
+      author: playlist.owner?.display_name || "You",
       image: playlist.images?.[0]?.url || null,
       spotify_url: playlist.external_urls?.spotify || null,
       description: playlist.description || "",
@@ -114,7 +165,7 @@ const formatPlaylists = (playlists) => {
     }));
 };
 
-router.get("/", async (req, res) => {
+router.get("/", authenticateJWT, async (req, res) => {
   try {
     const { q } = req.query;
 
@@ -123,29 +174,53 @@ router.get("/", async (req, res) => {
     }
 
     if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-      return res.status(500).json({ error: "Spotify credentials not configured" });
+      return res
+        .status(500)
+        .json({ error: "Spotify credentials not configured" });
     }
 
     const accessToken = await getSpotifyClientToken();
-
-    const searchResponse = await axios.get("https://api.spotify.com/v1/search", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      params: {
-        q: q.trim(),
-        type: "track,artist,album,playlist", 
-        limit: 10, 
-        market: "US",
-      },
-    });
+    const searchResponse = await axios.get(
+      "https://api.spotify.com/v1/search",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        params: {
+          q: q.trim(),
+          type: "track,artist,album",
+          limit: 10,
+          market: "US",
+        },
+      }
+    );
 
     const searchData = searchResponse.data || {};
-    
     const formattedTracks = formatTracks(searchData.tracks);
     const formattedArtists = formatArtists(searchData.artists);
     const formattedAlbums = formatAlbums(searchData.albums);
-    const formattedPlaylists = formatPlaylists(searchData.playlists);
+
+    let formattedPlaylists = [];
+    try {
+      if (req.user && req.user.id) {
+        const user = await User.findByPk(req.user.id);
+        const userAccessToken = await getValidSpotifyToken(user);
+        const playlistsResponse = await axios.get(
+          "https://api.spotify.com/v1/me/playlists",
+          {
+            headers: { Authorization: `Bearer ${userAccessToken}` },
+            params: { limit: 50 },
+          }
+        );
+        const allPlaylists = playlistsResponse.data.items || [];
+        const filteredPlaylists = allPlaylists
+          .filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase()))
+          .slice(0, 10);
+        formattedPlaylists = formatPlaylists({ items: filteredPlaylists });
+      }
+    } catch (err) {
+      formattedPlaylists = [];
+    }
 
     res.json({
       query: q,
@@ -158,39 +233,45 @@ router.get("/", async (req, res) => {
         artists: formattedArtists.length,
         albums: formattedAlbums.length,
         playlists: formattedPlaylists.length,
-      }
+      },
     });
-
   } catch (error) {
     console.error("Search error:", error);
-    
+
     if (error.response) {
-      console.error("Spotify API error:", error.response.status, error.response.data);
+      console.error(
+        "Spotify API error:",
+        error.response.status,
+        error.response.data
+      );
     }
-    
+
     if (error.response?.status === 400) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Invalid search query",
-        details: error.response?.data 
-      });
-    }
-    
-    if (error.response?.status === 401) {
-      return res.status(401).json({ 
-        error: "Spotify authentication failed",
-        details: "Invalid or expired client credentials"
-      });
-    }
-    
-    if (error.response?.status === 429) {
-      return res.status(429).json({ 
-        error: "Rate limit exceeded. Please try again later." 
+        details: error.response?.data,
       });
     }
 
-    res.status(500).json({ 
+    if (error.response?.status === 401) {
+      return res.status(401).json({
+        error: "Spotify authentication failed",
+        details: "Invalid or expired client credentials",
+      });
+    }
+
+    if (error.response?.status === 429) {
+      return res.status(429).json({
+        error: "Rate limit exceeded. Please try again later.",
+      });
+    }
+
+    res.status(500).json({
       error: "Search failed",
-      details: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+      details:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
     });
   }
 });
