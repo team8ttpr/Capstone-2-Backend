@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { User, Posts, Follows } = require("../database");
 const { authenticateJWT } = require("../auth");
+const { Op } = require("sequelize");
 
 // Check if current user is following another user
 router.get("/:username/following-status", authenticateJWT, async (req, res) => {
@@ -126,6 +127,45 @@ router.get("/:username/friends", authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error("Error fetching mutual friends:", error);
     res.status(500).json({ error: "Failed to fetch mutual friends" });
+  }
+});
+
+//
+router.get("/all-with-follow-status", authenticateJWT, async (req, res) => {
+  try {
+    const meId = req.user.id;
+
+    // Get all users except me
+    const users = await User.findAll({
+      where: { id: { [Op.ne]: meId } },
+      attributes: [
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "profileImage",
+        "spotifyProfileImage",
+        "avatarURL",
+      ],
+    });
+
+    // Get IDs of users I’m following
+    const following = await Follows.findAll({
+      where: { followerId: meId },
+      attributes: ["followingId"],
+    });
+    const followingIds = new Set(following.map((f) => f.followingId));
+
+    // Attach isFollowing flag to each user
+    const result = users.map((u) => ({
+      ...u.toJSON(),
+      isFollowing: followingIds.has(u.id),
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching users with follow status:", error);
+    res.status(500).json({ error: "Failed to fetch follow data" });
   }
 });
 
