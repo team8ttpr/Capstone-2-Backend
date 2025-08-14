@@ -130,7 +130,7 @@ router.get("/:username/friends", authenticateJWT, async (req, res) => {
   }
 });
 
-//
+//get all users with follow status
 router.get("/all-with-follow-status", authenticateJWT, async (req, res) => {
   try {
     const meId = req.user.id;

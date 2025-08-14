@@ -9,7 +9,9 @@ async function ensureSpotifyAccessToken(user) {
   }
 
   const now = Date.now();
-  const expMs = user.spotifyTokenExpiresAt ? new Date(user.spotifyTokenExpiresAt).getTime() : 0;
+  const expMs = user.spotifyTokenExpiresAt
+    ? new Date(user.spotifyTokenExpiresAt).getTime()
+    : 0;
   const needsRefresh = !user.spotifyAccessToken || expMs - now < 60000;
 
   if (!needsRefresh) return user.spotifyAccessToken;
@@ -39,7 +41,9 @@ async function ensureSpotifyAccessToken(user) {
   const data = await resp.json();
   user.spotifyAccessToken = data.access_token;
   if (data.expires_in) {
-    user.spotifyTokenExpiresAt = new Date(Date.now() + (data.expires_in - 60) * 1000);
+    user.spotifyTokenExpiresAt = new Date(
+      Date.now() + (data.expires_in - 60) * 1000
+    );
   }
   if (data.refresh_token) {
     user.spotifyRefreshToken = data.refresh_token;
@@ -50,7 +54,7 @@ async function ensureSpotifyAccessToken(user) {
 
 function extractPlaylistIdFromPost(post) {
   const embedUrl = post.spotifyEmbedUrl;
-  
+
   if (!embedUrl || typeof embedUrl !== "string") {
     return null;
   }
@@ -58,7 +62,9 @@ function extractPlaylistIdFromPost(post) {
   // Handle Spotify embed URLs
   // Format: https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator
   if (embedUrl.includes("open.spotify.com/embed/playlist/")) {
-    const match = embedUrl.match(/open\.spotify\.com\/embed\/playlist\/([a-zA-Z0-9]+)/);
+    const match = embedUrl.match(
+      /open\.spotify\.com\/embed\/playlist\/([a-zA-Z0-9]+)/
+    );
     if (match && match[1]) {
       return match[1];
     }
@@ -67,7 +73,9 @@ function extractPlaylistIdFromPost(post) {
   // Handle regular Spotify playlist URLs (just in case)
   // Format: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
   if (embedUrl.includes("open.spotify.com/playlist/")) {
-    const match = embedUrl.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
+    const match = embedUrl.match(
+      /open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/
+    );
     if (match && match[1]) {
       return match[1];
     }
@@ -125,7 +133,7 @@ router.get("/feed", async (req, res) => {
           as: "author",
           attributes: [
             "username",
-            "id", 
+            "id",
             "spotifyDisplayName",
             "profileImage",
             "spotifyProfileImage",
@@ -135,22 +143,25 @@ router.get("/feed", async (req, res) => {
         {
           model: PostLike,
           as: "likes",
-          include: [{
-            model: User,
-            as: "user",
-            attributes: ["id"]
-          }]
-        }
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["id"],
+            },
+          ],
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
 
     // Add like information to each post
-    const postsWithLikes = posts.map(post => {
+    const postsWithLikes = posts.map((post) => {
       const postData = post.toJSON();
       postData.likesCount = postData.likes ? postData.likes.length : 0;
-      postData.isLiked = userId ? 
-        postData.likes?.some(like => like.user.id === userId) : false;
+      postData.isLiked = userId
+        ? postData.likes?.some((like) => like.user.id === userId)
+        : false;
       return postData;
     });
 
@@ -173,7 +184,7 @@ router.get("/", async (req, res) => {
           attributes: [
             "username",
             "id",
-            "spotifyDisplayName", 
+            "spotifyDisplayName",
             "profileImage",
             "spotifyProfileImage",
             "avatarURL",
@@ -182,21 +193,24 @@ router.get("/", async (req, res) => {
         {
           model: PostLike,
           as: "likes",
-          include: [{
-            model: User,
-            as: "user", 
-            attributes: ["id"]
-          }]
-        }
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["id"],
+            },
+          ],
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
 
-    const postsWithLikes = posts.map(post => {
+    const postsWithLikes = posts.map((post) => {
       const postData = post.toJSON();
       postData.likesCount = postData.likes ? postData.likes.length : 0;
-      postData.isLiked = userId ?
-        postData.likes?.some(like => like.user.id === userId) : false;
+      postData.isLiked = userId
+        ? postData.likes?.some((like) => like.user.id === userId)
+        : false;
       return postData;
     });
 
@@ -208,7 +222,7 @@ router.get("/", async (req, res) => {
 });
 
 // Get posts if status === draft
-router.get("/drafts", authenticateJWT, async (req, res) => {
+router.get("/draft", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -264,12 +278,14 @@ router.get("/:id", async (req, res) => {
         {
           model: PostLike,
           as: "likes",
-          include: [{
-            model: User,
-            as: "user",
-            attributes: ["id"]
-          }]
-        }
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["id"],
+            },
+          ],
+        },
       ],
     });
 
@@ -279,8 +295,9 @@ router.get("/:id", async (req, res) => {
 
     const postData = post.toJSON();
     postData.likesCount = postData.likes ? postData.likes.length : 0;
-    postData.isLiked = userId ? 
-      postData.likes?.some(like => like.user.id === userId) : false;
+    postData.isLiked = userId
+      ? postData.likes?.some((like) => like.user.id === userId)
+      : false;
 
     res.json(postData);
   } catch (error) {
@@ -312,7 +329,9 @@ router.post("/", authenticateJWT, async (req, res) => {
     const userId = req.user.id;
 
     if (!title || !description) {
-      return res.status(400).json({ error: "Title and description are required" });
+      return res
+        .status(400)
+        .json({ error: "Title and description are required" });
     }
 
     const post = await Posts.create({
@@ -369,7 +388,9 @@ router.put("/:id", authenticateJWT, async (req, res) => {
     }
 
     if (post.userId !== userId) {
-      return res.status(403).json({ error: "Not authorized to edit this post" });
+      return res
+        .status(403)
+        .json({ error: "Not authorized to edit this post" });
     }
 
     const {
@@ -391,16 +412,35 @@ router.put("/:id", authenticateJWT, async (req, res) => {
     await post.update({
       title: title || post.title,
       description: description || post.description,
-      spotifyArtistId: spotifyArtistId !== undefined ? spotifyArtistId : post.spotifyArtistId,
-      spotifyTrackId: spotifyTrackId !== undefined ? spotifyTrackId : post.spotifyTrackId,
-      spotifyPlaylistId: spotifyPlaylistId !== undefined ? spotifyPlaylistId : post.spotifyPlaylistId,
-      spotifyAlbumId: spotifyAlbumId !== undefined ? spotifyAlbumId : post.spotifyAlbumId,
-      spotifyArtistName: spotifyArtistName !== undefined ? spotifyArtistName : post.spotifyArtistName,
-      spotifyTrackName: spotifyTrackName !== undefined ? spotifyTrackName : post.spotifyTrackName,
-      spotifyPlaylistName: spotifyPlaylistName !== undefined ? spotifyPlaylistName : post.spotifyPlaylistName,
-      spotifyAlbumName: spotifyAlbumName !== undefined ? spotifyAlbumName : post.spotifyAlbumName,
+      spotifyArtistId:
+        spotifyArtistId !== undefined ? spotifyArtistId : post.spotifyArtistId,
+      spotifyTrackId:
+        spotifyTrackId !== undefined ? spotifyTrackId : post.spotifyTrackId,
+      spotifyPlaylistId:
+        spotifyPlaylistId !== undefined
+          ? spotifyPlaylistId
+          : post.spotifyPlaylistId,
+      spotifyAlbumId:
+        spotifyAlbumId !== undefined ? spotifyAlbumId : post.spotifyAlbumId,
+      spotifyArtistName:
+        spotifyArtistName !== undefined
+          ? spotifyArtistName
+          : post.spotifyArtistName,
+      spotifyTrackName:
+        spotifyTrackName !== undefined
+          ? spotifyTrackName
+          : post.spotifyTrackName,
+      spotifyPlaylistName:
+        spotifyPlaylistName !== undefined
+          ? spotifyPlaylistName
+          : post.spotifyPlaylistName,
+      spotifyAlbumName:
+        spotifyAlbumName !== undefined
+          ? spotifyAlbumName
+          : post.spotifyAlbumName,
       spotifyType: spotifyType !== undefined ? spotifyType : post.spotifyType,
-      spotifyEmbedUrl: spotifyEmbedUrl !== undefined ? spotifyEmbedUrl : post.spotifyEmbedUrl,
+      spotifyEmbedUrl:
+        spotifyEmbedUrl !== undefined ? spotifyEmbedUrl : post.spotifyEmbedUrl,
       status: status || post.status,
     });
 
@@ -440,7 +480,9 @@ router.delete("/:id", authenticateJWT, async (req, res) => {
     }
 
     if (post.userId !== userId) {
-      return res.status(403).json({ error: "Not authorized to delete this post" });
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this post" });
     }
 
     await post.destroy();
@@ -451,7 +493,7 @@ router.delete("/:id", authenticateJWT, async (req, res) => {
   }
 });
 
-router.post('/:id/like', authenticateJWT, async (req, res) => {
+router.post("/:id/like", authenticateJWT, async (req, res) => {
   try {
     const postId = req.params.id;
     const userId = req.user.id;
@@ -463,14 +505,16 @@ router.post('/:id/like', authenticateJWT, async (req, res) => {
 
     const user = await User.findByPk(userId);
     if (!user) {
-      return res.status(401).json({ error: 'User not found. Please log in again.' });
+      return res
+        .status(401)
+        .json({ error: "User not found. Please log in again." });
     }
 
     const existingLike = await PostLike.findOne({
-      where: { 
+      where: {
         postId: postId,
-        userId: userId
-      }
+        userId: userId,
+      },
     });
 
     let isLiked;
@@ -478,31 +522,32 @@ router.post('/:id/like', authenticateJWT, async (req, res) => {
       await existingLike.destroy();
       isLiked = false;
     } else {
-      await PostLike.create({ 
+      await PostLike.create({
         postId: postId,
-        userId: userId
+        userId: userId,
       });
       isLiked = true;
     }
 
     const likesCount = await PostLike.count({
-      where: { postId: postId }
+      where: { postId: postId },
     });
-    
+
     res.json({
       success: true,
       isLiked,
-      likesCount
+      likesCount,
     });
-
   } catch (error) {
-    console.error('Error liking post:', error);
-    
-    if (error.name === 'SequelizeForeignKeyConstraintError') {
-      return res.status(401).json({ error: 'User not found. Please log in again.' });
+    console.error("Error liking post:", error);
+
+    if (error.name === "SequelizeForeignKeyConstraintError") {
+      return res
+        .status(401)
+        .json({ error: "User not found. Please log in again." });
     }
-    
-    res.status(500).json({ error: 'Failed to like post' });
+
+    res.status(500).json({ error: "Failed to like post" });
   }
 });
 
@@ -514,7 +559,13 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
 
     const [post, user] = await Promise.all([
       Posts.findByPk(postId, {
-        include: [{ model: User, as: "author", attributes: ["username", "spotifyDisplayName"] }],
+        include: [
+          {
+            model: User,
+            as: "author",
+            attributes: ["username", "spotifyDisplayName"],
+          },
+        ],
       }),
       User.findByPk(userId),
     ]);
@@ -528,41 +579,47 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
     }
 
     const sourcePlaylistId = extractPlaylistIdFromPost(post);
-    
+
     if (!sourcePlaylistId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Playlist ID not found on post",
-        embedUrl: post.spotifyEmbedUrl
+        embedUrl: post.spotifyEmbedUrl,
       });
     }
 
-    const isSpotifyCurated = sourcePlaylistId.startsWith('37i9dQ');
+    const isSpotifyCurated = sourcePlaylistId.startsWith("37i9dQ");
 
     const accessToken = await ensureSpotifyAccessToken(user);
 
     let testPlaylist = null;
     let playlistFound = false;
 
-    let testResp = await fetch(`https://api.spotify.com/v1/playlists/${sourcePlaylistId}?fields=id,name,public,collaborative,owner`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    let testResp = await fetch(
+      `https://api.spotify.com/v1/playlists/${sourcePlaylistId}?fields=id,name,public,collaborative,owner`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
 
     if (testResp.ok) {
       testPlaylist = await testResp.json();
       playlistFound = true;
     } else {
-      const tracksResp = await fetch(`https://api.spotify.com/v1/playlists/${sourcePlaylistId}/tracks?limit=1&fields=total`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const tracksResp = await fetch(
+        `https://api.spotify.com/v1/playlists/${sourcePlaylistId}/tracks?limit=1&fields=total`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
 
       if (tracksResp.ok) {
         const tracksData = await tracksResp.json();
-        
+
         testPlaylist = {
           id: sourcePlaylistId,
           name: `Spotify Playlist ${sourcePlaylistId}`,
           public: true,
-          owner: { id: 'spotify', display_name: 'Spotify' }
+          owner: { id: "spotify", display_name: "Spotify" },
         };
         playlistFound = true;
       }
@@ -570,27 +627,29 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
 
     if (!playlistFound) {
       const errorText = await testResp.text();
-      
+
       let errorData;
       try {
         errorData = JSON.parse(errorText);
       } catch (e) {
         errorData = { error: { message: errorText } };
       }
-      
+
       if (isSpotifyCurated) {
-        return res.status(400).json({ 
-          error: "This Spotify playlist cannot be forked due to API restrictions. Try with a user-created playlist instead.",
+        return res.status(400).json({
+          error:
+            "This Spotify playlist cannot be forked due to API restrictions. Try with a user-created playlist instead.",
           extractedId: sourcePlaylistId,
           originalUrl: post.spotifyEmbedUrl,
-          isSpotifyCurated: true
+          isSpotifyCurated: true,
         });
       } else {
-        return res.status(400).json({ 
-          error: "Spotify playlist not found. The playlist may be private, deleted, or the link may be broken.",
+        return res.status(400).json({
+          error:
+            "Spotify playlist not found. The playlist may be private, deleted, or the link may be broken.",
           extractedId: sourcePlaylistId,
           originalUrl: post.spotifyEmbedUrl,
-          details: errorData
+          details: errorData,
         });
       }
     }
@@ -600,29 +659,35 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
     });
     if (!meResp.ok) {
       const t = await meResp.text();
-      return res.status(400).json({ error: `Failed to get Spotify profile: ${t}` });
+      return res
+        .status(400)
+        .json({ error: `Failed to get Spotify profile: ${t}` });
     }
     const me = await meResp.json();
 
     const src = testPlaylist;
-    const authorName = post.author?.username || post.author?.spotifyDisplayName || null;
-    const newDesc = `Forked from ${src.name}${authorName ? ` by ${authorName}` : ""} via ${
-      process.env.APP_NAME || "CapStone"
-    }`;
+    const authorName =
+      post.author?.username || post.author?.spotifyDisplayName || null;
+    const newDesc = `Forked from ${src.name}${
+      authorName ? ` by ${authorName}` : ""
+    } via ${process.env.APP_NAME || "CapStone"}`;
 
-    const createResp = await fetch(`https://api.spotify.com/v1/users/${me.id}/playlists`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ 
-        name: playlistName || `Fork • ${src.name}`, 
-        description: newDesc, 
-        public: isPublic !== undefined ? isPublic : true,
-        collaborative: isCollaborative || false
-      }),
-    });
+    const createResp = await fetch(
+      `https://api.spotify.com/v1/users/${me.id}/playlists`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: playlistName || `Fork • ${src.name}`,
+          description: newDesc,
+          public: isPublic !== undefined ? isPublic : true,
+          collaborative: isCollaborative || false,
+        }),
+      }
+    );
     if (!createResp.ok) {
       const t = await createResp.text();
       return res.status(400).json({ error: `Failed to create playlist: ${t}` });
@@ -630,12 +695,16 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
     const created = await createResp.json();
 
     try {
-      const uris = await fetchAllPlaylistTrackUris(accessToken, sourcePlaylistId);
+      const uris = await fetchAllPlaylistTrackUris(
+        accessToken,
+        sourcePlaylistId
+      );
 
       if (uris.length === 0) {
         return res.json({
           success: true,
-          message: "Playlist forked successfully, but no tracks were found to copy.",
+          message:
+            "Playlist forked successfully, but no tracks were found to copy.",
           playlistId: created.id,
           playlistUrl: created.external_urls?.spotify || null,
           trackCount: 0,
@@ -643,14 +712,17 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
       }
 
       for (const group of chunk(uris, 100)) {
-        const addResp = await fetch(`https://api.spotify.com/v1/playlists/${created.id}/tracks`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uris: group }),
-        });
+        const addResp = await fetch(
+          `https://api.spotify.com/v1/playlists/${created.id}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ uris: group }),
+          }
+        );
         if (!addResp.ok) {
           const t = await addResp.text();
           return res.status(400).json({ error: `Failed adding tracks: ${t}` });
@@ -659,13 +731,19 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Playlist successfully forked and added to your Spotify library.",
+        message:
+          "Playlist successfully forked and added to your Spotify library.",
         playlistId: created.id,
         playlistUrl: created.external_urls?.spotify || null,
         trackCount: uris.length,
       });
     } catch (trackError) {
-      return res.status(400).json({ error: "Could not access playlist tracks. The playlist may be private or restricted." });
+      return res
+        .status(400)
+        .json({
+          error:
+            "Could not access playlist tracks. The playlist may be private or restricted.",
+        });
     }
   } catch (err) {
     console.error("Fork playlist error:", err);
