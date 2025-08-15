@@ -7,17 +7,14 @@ const cors = require("cors");
 const http = require("http");
 const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
-
 const app = express();
 const apiRouter = require("./api");
 const { router: authRouter } = require("./auth");
 const spotifyRouter = require("./auth/spotify");
 const { db } = require("./database");
-
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
-/* ----------------------------- Express setup ----------------------------- */
 app.use(express.json());
 
 const corsOptions = {
@@ -36,7 +33,6 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(express.static(path.join(__dirname, "public")));
-
 app.use("/api", apiRouter);
 app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
@@ -123,7 +119,15 @@ io.on("connection", (socket) => {
   });
 });
 
-// Optional: quick REST snapshot for debugging
+// Every 10s, broadcast a full presence snapshot to all sockets
+const SNAPSHOT_MS = 10_000;
+setInterval(() => {
+  const onlineIds = [...socketsByUser.entries()]
+    .filter(([, s]) => s.size > 0)
+    .map(([id]) => String(id)); // normalize
+  io.emit("presence:snapshot", onlineIds);
+}, SNAPSHOT_MS);
+
 app.get("/api/presence/online", (req, res) => {
   const online = [...socketsByUser.entries()]
     .filter(([, s]) => s.size > 0)
@@ -131,7 +135,6 @@ app.get("/api/presence/online", (req, res) => {
   res.json(online);
 });
 
-/* --------------------------------- Errors -------------------------------- */
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res
@@ -139,7 +142,6 @@ app.use((err, req, res, next) => {
     .json({ error: "Internal server error", details: err.message });
 });
 
-/* --------------------------------- Boot ---------------------------------- */
 const runApp = async () => {
   try {
     await db.sync();
