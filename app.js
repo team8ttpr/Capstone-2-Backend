@@ -34,6 +34,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/api", apiRouter);
 app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
+app.use("/api/messages", require("./api/messages"));
 
 /* --------------------- http server + socket attach ------------------ */
 const server = http.createServer(app);
