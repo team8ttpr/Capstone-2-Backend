@@ -583,4 +583,95 @@ router.delete("/disconnect", authenticateJWT, async (req, res) => {
   }
 });
 
+// Endpoint to get user's Spotify listening history, top genres, and top artists by genre
+router.get("/history", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user?.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    let accessToken;
+    try {
+      accessToken = await getValidSpotifyToken(user);
+    } catch (tokenError) {
+      return res.status(401).json({ error: "Spotify token error", details: tokenError.message });
+    }
+
+    let recentTracks = [];
+    try {
+      const recentTracksRes = await axios.get(
+        "https://api.spotify.com/v1/me/player/recently-played",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { limit: 50 },
+        }
+      );
+      recentTracks = recentTracksRes.data.items || [];
+    } catch (recentError) {
+      return res.status(500).json({ error: "Failed to fetch listening history", details: recentError.response?.data || recentError.message });
+    }
+
+    let topArtists = [];
+    try {
+      const topArtistsRes = await axios.get(
+        "https://api.spotify.com/v1/me/top/artists",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { limit: 20, time_range: "medium_term" },
+        }
+      );
+      topArtists = topArtistsRes.data.items || [];
+    } catch (topError) {
+      return res.status(500).json({ error: "Failed to fetch top genres and artists", details: topError.response?.data || topError.message });
+    }
+
+    // Aggregate genres from top artists
+    const genreCount = {};
+    topArtists.forEach((artist) => {
+      artist.genres.forEach((genre) => {
+        genreCount[genre] = (genreCount[genre] || 0) + 1;
+      });
+    });
+    // Sort genres by count
+    const topGenres = Object.entries(genreCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(([genre, count]) => ({ genre, count }));
+
+    // Rank top artists by genre
+    const artistsByGenre = {};
+    topArtists.forEach((artist) => {
+      artist.genres.forEach((genre) => {
+        if (!artistsByGenre[genre]) artistsByGenre[genre] = [];
+        artistsByGenre[genre].push({
+          id: artist.id,
+          name: artist.name,
+          popularity: artist.popularity,
+          images: artist.images,
+        });
+      });
+    });
+    // Sort artists in each genre by popularity
+    Object.keys(artistsByGenre).forEach((genre) => {
+      artistsByGenre[genre].sort((a, b) => b.popularity - a.popularity);
+    });
+
+    res.json({
+      recentTracks: recentTracks.map((item) => ({
+        track: {
+          id: item.track.id,
+          name: item.track.name,
+          artists: item.track.artists.map((a) => a.name),
+          album: item.track.album.name,
+          played_at: item.track.played_at,
+        },
+      })),
+      topGenres,
+      artistsByGenre,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Unexpected error in Spotify history endpoint", details: error.message });
+  }
+});
+
 module.exports = router;
