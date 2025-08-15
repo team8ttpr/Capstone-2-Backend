@@ -19,6 +19,26 @@ const cookieSettings = {
   path: "/",
 };
 
+// middlewares/requireSpotifyAuth.js
+async function requireSpotifyAuth(req, res, next) {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["spotifyDisplayName", "spotifyProfileImage"],
+    });
+
+    if (!user || !user.spotifyDisplayName) {
+      // Redirect for non-Spotify users
+      return res.status(302).redirect("/connect-spotify");
+      // Or: return res.status(403).json({ error: "Spotify not connected" });
+    }
+
+    next();
+  } catch (err) {
+    console.error("Spotify auth check failed:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
+
 //this function makes a call to get a spotify token
 const refreshSpotifyToken = async (user) => {
   try {
@@ -389,289 +409,335 @@ router.get("/profile", authenticateJWT, async (req, res) => {
 });
 
 // Get top tracks for logged in user
-router.get("/top-tracks", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    const accessToken = await getValidSpotifyToken(user);
-    const timeRange = req.query.time_range || "long_term";
+router.get(
+  "/top-tracks",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
+      const timeRange = req.query.time_range || "long_term";
 
-    const response = await axios.get(
-      "https://api.spotify.com/v1/me/top/tracks",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        params: {
-          limit: 20,
-          time_range: timeRange,
-        },
+      const response = await axios.get(
+        "https://api.spotify.com/v1/me/top/tracks",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            limit: 20,
+            time_range: timeRange,
+          },
+        }
+      );
+
+      res.json(response.data);
+    } catch (error) {
+      if (error.message === "Spotify not connected") {
+        return res.status(401).json({ error: "Spotify not connected" });
       }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    if (error.message === "Spotify not connected") {
-      return res.status(401).json({ error: "Spotify not connected" });
+      console.error("Error getting top tracks:", error.message);
+      res.status(500).json({ error: "Failed to get top tracks" });
     }
-    console.error("Error getting top tracks:", error.message);
-    res.status(500).json({ error: "Failed to get top tracks" });
   }
-});
+);
 
 //route for top artist
-router.get("/top-artists", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    const accessToken = await getValidSpotifyToken(user);
+router.get(
+  "/top-artists",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
 
-    const timeRanges = ["short_term", "medium_term", "long_term"];
-    let bestResult = null;
+      const timeRanges = ["short_term", "medium_term", "long_term"];
+      let bestResult = null;
 
-    for (const timeRange of timeRanges) {
-      try {
-        const response = await axios.get(
-          "https://api.spotify.com/v1/me/top/artists",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-            params: {
-              limit: 20,
-              time_range: timeRange,
-            },
+      for (const timeRange of timeRanges) {
+        try {
+          const response = await axios.get(
+            "https://api.spotify.com/v1/me/top/artists",
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+              params: {
+                limit: 20,
+                time_range: timeRange,
+              },
+            }
+          );
+
+          if (response.data.items.length > 0) {
+            return res.json({
+              ...response.data,
+              time_range_used: timeRange,
+            });
           }
-        );
 
-        if (response.data.items.length > 0) {
-          return res.json({
-            ...response.data,
-            time_range_used: timeRange,
-          });
+          if (!bestResult) {
+            bestResult = {
+              ...response.data,
+              time_range_used: timeRange,
+            };
+          }
+        } catch (error) {
+          console.error(
+            `Error getting top artists for ${timeRange}:`,
+            error.message
+          );
         }
+      }
 
-        if (!bestResult) {
-          bestResult = {
-            ...response.data,
-            time_range_used: timeRange,
-          };
+      res.json(
+        bestResult || {
+          items: [],
+          total: 0,
+          message: "No listening history found for artists.",
         }
-      } catch (error) {
-        console.error(
-          `Error getting top artists for ${timeRange}:`,
-          error.message
-        );
+      );
+    } catch (error) {
+      if (error.message === "Spotify not connected") {
+        return res.status(401).json({ error: "Spotify not connected" });
       }
+      console.error("Error getting top artists:", error.message);
+      res.status(500).json({ error: "Failed to get top artists" });
     }
-
-    res.json(
-      bestResult || {
-        items: [],
-        total: 0,
-        message: "No listening history found for artists.",
-      }
-    );
-  } catch (error) {
-    if (error.message === "Spotify not connected") {
-      return res.status(401).json({ error: "Spotify not connected" });
-    }
-    console.error("Error getting top artists:", error.message);
-    res.status(500).json({ error: "Failed to get top artists" });
   }
-});
+);
 
 // Get user's playlists
-router.get("/playlists", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    const accessToken = await getValidSpotifyToken(user);
+router.get(
+  "/playlists",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
 
-    const response = await axios.get(
-      "https://api.spotify.com/v1/me/playlists",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        params: {
-          limit: 50, // Get up to 50 playlists
-          offset: 0,
-        },
+      const response = await axios.get(
+        "https://api.spotify.com/v1/me/playlists",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            limit: 50, // Get up to 50 playlists
+            offset: 0,
+          },
+        }
+      );
+
+      res.json(response.data);
+    } catch (error) {
+      if (error.message === "Spotify not connected") {
+        return res.status(401).json({ error: "Spotify not connected" });
       }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    if (error.message === "Spotify not connected") {
-      return res.status(401).json({ error: "Spotify not connected" });
+      console.error("Error getting playlists:", error.message);
+      res.status(500).json({ error: "Failed to get playlists" });
     }
-    console.error("Error getting playlists:", error.message);
-    res.status(500).json({ error: "Failed to get playlists" });
   }
-});
+);
 
 // Get route individual playlist
-router.get("/playlists/:id", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    const accessToken = await getValidSpotifyToken(user);
-    const playlistId = req.params.id;
+router.get(
+  "/playlists/:id",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
+      const playlistId = req.params.id;
 
-    const response = await axios.get(
-      `https://api.spotify.com/v1/playlists/${playlistId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      const response = await axios.get(
+        `https://api.spotify.com/v1/playlists/${playlistId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      res.json(response.data);
+    } catch (error) {
+      if (error.message === "Spotify not connected") {
+        return res.status(401).json({ error: "Spotify not connected" });
       }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    if (error.message === "Spotify not connected") {
-      return res.status(401).json({ error: "Spotify not connected" });
+      console.error("Error getting playlist details:", error.message);
+      res.status(500).json({ error: "Failed to get playlist details" });
     }
-    console.error("Error getting playlist details:", error.message);
-    res.status(500).json({ error: "Failed to get playlist details" });
   }
-});
+);
 
 // Get route for playlist tracks
-router.get("/playlists/:id/tracks", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    const accessToken = await getValidSpotifyToken(user);
-    const playlistId = req.params.id;
+router.get(
+  "/playlists/:id/tracks",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
+      const playlistId = req.params.id;
 
-    const response = await axios.get(
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        params: {
-          limit: 100,
-          offset: 0,
-        },
+      const response = await axios.get(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            limit: 100,
+            offset: 0,
+          },
+        }
+      );
+
+      res.json(response.data);
+    } catch (error) {
+      if (error.message === "Spotify not connected") {
+        return res.status(401).json({ error: "Spotify not connected" });
       }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    if (error.message === "Spotify not connected") {
-      return res.status(401).json({ error: "Spotify not connected" });
+      console.error("Error getting playlist tracks:", error.message);
+      res.status(500).json({ error: "Failed to get playlist tracks" });
     }
-    console.error("Error getting playlist tracks:", error.message);
-    res.status(500).json({ error: "Failed to get playlist tracks" });
   }
-});
+);
 
 // Disconnect Spotify/ does not work at the moment
-router.delete("/disconnect", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.id);
-    await user.update({
-      spotifyId: null,
-      spotifyAccessToken: null,
-      spotifyRefreshToken: null,
-      spotifyTokenExpiresAt: null,
-      spotifyDisplayName: null,
-      spotifyProfileImage: null,
-    });
-    res.json({ message: "Spotify disconnected successfully" });
-  } catch (error) {
-    console.error("Error disconnecting Spotify:", error.message);
-    res.status(500).json({ error: "Failed to disconnect Spotify" });
+router.delete(
+  "/disconnect",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      await user.update({
+        spotifyId: null,
+        spotifyAccessToken: null,
+        spotifyRefreshToken: null,
+        spotifyTokenExpiresAt: null,
+        spotifyDisplayName: null,
+        spotifyProfileImage: null,
+      });
+      res.json({ message: "Spotify disconnected successfully" });
+    } catch (error) {
+      console.error("Error disconnecting Spotify:", error.message);
+      res.status(500).json({ error: "Failed to disconnect Spotify" });
+    }
   }
-});
+);
 
 // Endpoint to get user's Spotify listening history, top genres, and top artists by genre
-router.get("/history", authenticateJWT, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user?.id);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    let accessToken;
+router.get(
+  "/history",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
     try {
-      accessToken = await getValidSpotifyToken(user);
-    } catch (tokenError) {
-      return res.status(401).json({ error: "Spotify token error", details: tokenError.message });
-    }
+      const user = await User.findByPk(req.user?.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
 
-    let recentTracks = [];
-    try {
-      const recentTracksRes = await axios.get(
-        "https://api.spotify.com/v1/me/player/recently-played",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: { limit: 50 },
-        }
-      );
-      recentTracks = recentTracksRes.data.items || [];
-    } catch (recentError) {
-      return res.status(500).json({ error: "Failed to fetch listening history", details: recentError.response?.data || recentError.message });
-    }
+      let accessToken;
+      try {
+        accessToken = await getValidSpotifyToken(user);
+      } catch (tokenError) {
+        return res
+          .status(401)
+          .json({ error: "Spotify token error", details: tokenError.message });
+      }
 
-    let topArtists = [];
-    try {
-      const topArtistsRes = await axios.get(
-        "https://api.spotify.com/v1/me/top/artists",
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          params: { limit: 20, time_range: "medium_term" },
-        }
-      );
-      topArtists = topArtistsRes.data.items || [];
-    } catch (topError) {
-      return res.status(500).json({ error: "Failed to fetch top genres and artists", details: topError.response?.data || topError.message });
-    }
+      let recentTracks = [];
+      try {
+        const recentTracksRes = await axios.get(
+          "https://api.spotify.com/v1/me/player/recently-played",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { limit: 50 },
+          }
+        );
+        recentTracks = recentTracksRes.data.items || [];
+      } catch (recentError) {
+        return res.status(500).json({
+          error: "Failed to fetch listening history",
+          details: recentError.response?.data || recentError.message,
+        });
+      }
 
-    // Aggregate genres from top artists
-    const genreCount = {};
-    topArtists.forEach((artist) => {
-      artist.genres.forEach((genre) => {
-        genreCount[genre] = (genreCount[genre] || 0) + 1;
-      });
-    });
-    // Sort genres by count
-    const topGenres = Object.entries(genreCount)
-      .sort((a, b) => b[1] - a[1])
-      .map(([genre, count]) => ({ genre, count }));
+      let topArtists = [];
+      try {
+        const topArtistsRes = await axios.get(
+          "https://api.spotify.com/v1/me/top/artists",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { limit: 20, time_range: "medium_term" },
+          }
+        );
+        topArtists = topArtistsRes.data.items || [];
+      } catch (topError) {
+        return res.status(500).json({
+          error: "Failed to fetch top genres and artists",
+          details: topError.response?.data || topError.message,
+        });
+      }
 
-    // Rank top artists by genre
-    const artistsByGenre = {};
-    topArtists.forEach((artist) => {
-      artist.genres.forEach((genre) => {
-        if (!artistsByGenre[genre]) artistsByGenre[genre] = [];
-        artistsByGenre[genre].push({
-          id: artist.id,
-          name: artist.name,
-          popularity: artist.popularity,
-          images: artist.images,
+      // Aggregate genres from top artists
+      const genreCount = {};
+      topArtists.forEach((artist) => {
+        artist.genres.forEach((genre) => {
+          genreCount[genre] = (genreCount[genre] || 0) + 1;
         });
       });
-    });
-    // Sort artists in each genre by popularity
-    Object.keys(artistsByGenre).forEach((genre) => {
-      artistsByGenre[genre].sort((a, b) => b.popularity - a.popularity);
-    });
+      // Sort genres by count
+      const topGenres = Object.entries(genreCount)
+        .sort((a, b) => b[1] - a[1])
+        .map(([genre, count]) => ({ genre, count }));
 
-    res.json({
-      recentTracks: recentTracks.map((item) => ({
-        track: {
-          id: item.track.id,
-          name: item.track.name,
-          artists: item.track.artists.map((a) => a.name),
-          album: item.track.album.name,
-          played_at: item.track.played_at,
-        },
-      })),
-      topGenres,
-      artistsByGenre,
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Unexpected error in Spotify history endpoint", details: error.message });
+      // Rank top artists by genre
+      const artistsByGenre = {};
+      topArtists.forEach((artist) => {
+        artist.genres.forEach((genre) => {
+          if (!artistsByGenre[genre]) artistsByGenre[genre] = [];
+          artistsByGenre[genre].push({
+            id: artist.id,
+            name: artist.name,
+            popularity: artist.popularity,
+            images: artist.images,
+          });
+        });
+      });
+      // Sort artists in each genre by popularity
+      Object.keys(artistsByGenre).forEach((genre) => {
+        artistsByGenre[genre].sort((a, b) => b.popularity - a.popularity);
+      });
+
+      res.json({
+        recentTracks: recentTracks.map((item) => ({
+          track: {
+            id: item.track.id,
+            name: item.track.name,
+            artists: item.track.artists.map((a) => a.name),
+            album: item.track.album.name,
+            played_at: item.track.played_at,
+          },
+        })),
+        topGenres,
+        artistsByGenre,
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: "Unexpected error in Spotify history endpoint",
+        details: error.message,
+      });
+    }
   }
-});
+);
 
 module.exports = router;
