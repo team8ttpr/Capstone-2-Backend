@@ -6,6 +6,7 @@ const Sticker = require("./sticker");
 const UserProfileSticker = require("./userProfileSticker");
 const PostLike = require("./postLikes");
 const Comments = require("./comments");
+const Message = require("./messages");
 
 User.hasMany(Posts, {
   foreignKey: "userId",
@@ -103,6 +104,13 @@ Comments.hasMany(Comments, { foreignKey: "parent_id", as: "replies" });
 User.hasMany(Comments, { foreignKey: "user_id" });
 Posts.hasMany(Comments, { foreignKey: "post_id" });
 
+//message associations
+Message.belongsTo(User, { as: "sender", foreignKey: "senderId" });
+Message.belongsTo(User, { as: "receiver", foreignKey: "receiverId" });
+
+User.hasMany(Message, { as: "sentMessages", foreignKey: "senderId" });
+User.hasMany(Message, { as: "receivedMessages", foreignKey: "receiverId" });
+
 module.exports = {
   db,
   User,
@@ -112,4 +120,5 @@ module.exports = {
   UserProfileSticker,
   PostLike,
   Comments,
+  Message,
 };
