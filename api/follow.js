@@ -169,4 +169,77 @@ router.get("/all-with-follow-status", authenticateJWT, async (req, res) => {
   }
 });
 
+router.get("/", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const followers = await Follows.findAll({
+      where: { followingId: user.id },
+      include: [
+        {
+          model: User,
+          as: "follower",
+          attributes: [
+            "id",
+            "username",
+            "firstName",
+            "lastName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 50,
+    });
+
+    res.json(followers.map((follow) => follow.follower));
+  } catch (error) {
+    console.error("Error fetching my followers:", error);
+    res.status(500).json({ error: "Failed to fetch followers" });
+  }
+});
+
+// Get *my* following
+router.get("/", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const following = await Follows.findAll({
+      where: { followerId: user.id },
+      include: [
+        {
+          model: User,
+          as: "following",
+          attributes: [
+            "id",
+            "username",
+            "firstName",
+            "lastName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      limit: 50,
+    });
+
+    res.json(following.map((follow) => follow.following));
+  } catch (error) {
+    console.error("Error fetching my following:", error);
+    res.status(500).json({ error: "Failed to fetch following" });
+  }
+});
+
 module.exports = router;
