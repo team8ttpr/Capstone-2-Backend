@@ -36,10 +36,10 @@ app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
 app.use("/api/messages", require("./api/messages"));
 
-/* --------------------- http server + socket attach ------------------ */
 const server = http.createServer(app);
-// This line pulls all websocket/presence code out of app.js
-require("./ws/realtime")(server, app, { corsOptions });
+
+const initSocketServer = require("./socket-server");
+initSocketServer(server);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
