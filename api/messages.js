@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const { User, Follows, Message } = require("../database");
 const { authenticateJWT } = require("../auth");
+const { Op } = require("sequelize");
 
-// Get list of friends (users you can DM)
+// Get list of friends
 router.get("/friends", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -24,7 +25,7 @@ router.get("/:userId", authenticateJWT, async (req, res) => {
     const otherUserId = parseInt(req.params.userId, 10);
     const messages = await Message.findAll({
       where: {
-        [Message.sequelize.Op.or]: [
+        [Op.or]: [
           { senderId: req.user.id, receiverId: otherUserId },
           { senderId: otherUserId, receiverId: req.user.id }
         ]
@@ -33,6 +34,7 @@ router.get("/:userId", authenticateJWT, async (req, res) => {
     });
     res.json(messages);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 });
