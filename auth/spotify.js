@@ -919,7 +919,7 @@ async function getGeminiPlaylist(prompt) {
   }
 }
 
-// route to generate recommendations with gemini to display on analytics, prompt focuses on less known songs user might not have heard
+// route to generate recommendations with gemini to display on analytics, uses Promise.all for parallel Spotify search
 router.get(
   "/ai-recommendations",
   authenticateJWT,
@@ -980,7 +980,7 @@ router.get(
       const topGenresStr = topGenres.length > 0
         ? topGenres.join(', ')
         : 'None';
-      const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of AT LEAST 50 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
+      const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of AT LEAST 20 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
       let aiResponse;
       try {
         const response = await axios.post(
@@ -1011,9 +1011,8 @@ router.get(
       } catch (err) {
         return res.status(500).json({ error: "Gemini recommendation error", details: err.message });
       }
-      // search the track on spotify
-      const tracks = [];
-      for (const rec of aiResponse) {
+      // search the track on spotify in parallel
+      const trackPromises = aiResponse.map(async (rec) => {
         try {
           const searchRes = await axios.get(
             "https://api.spotify.com/v1/search",
@@ -1028,12 +1027,15 @@ router.get(
           );
           const track = searchRes.data.tracks.items[0];
           if (track && track.id) {
-            tracks.push({ id: track.id, uri: track.uri, name: track.name, artist: track.artists.map(a => a.name).join(", "), genre: rec.genre || null });
+            return { id: track.id, uri: track.uri, name: track.name, artist: track.artists.map(a => a.name).join(", "), genre: rec.genre || null };
           }
         } catch (err) {
           // skip if not found
         }
-      }
+        return null;
+      });
+      const tracksRaw = await Promise.all(trackPromises);
+      const tracks = tracksRaw.filter(Boolean);
       res.json({ tracks });
     } catch (error) {
       res.status(500).json({ error: "Unexpected error in AI recommendations endpoint", details: error.message });
