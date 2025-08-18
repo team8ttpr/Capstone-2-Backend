@@ -919,4 +919,112 @@ async function getGeminiPlaylist(prompt) {
   }
 }
 
+// route to generate recommendations with gemini to display on anakytics
+router.get(
+  "/ai-recommendations",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      const user = await User.findByPk(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      let accessToken;
+      try {
+        accessToken = await getValidSpotifyToken(user);
+      } catch (tokenError) {
+        return res.status(401).json({ error: "Spotify token error", details: tokenError.message });
+      }
+      // fetch recent tracks and top artists
+      let recentTracks = [];
+      let topArtists = [];
+      try {
+        const recentTracksRes = await axios.get(
+          "https://api.spotify.com/v1/me/player/recently-played",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { limit: 20 },
+          }
+        );
+        recentTracks = recentTracksRes.data.items || [];
+      } catch {}
+      try {
+        const topArtistsRes = await axios.get(
+          "https://api.spotify.com/v1/me/top/artists",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params: { limit: 10, time_range: "medium_term" },
+          }
+        );
+        topArtists = topArtistsRes.data.items || [];
+      } catch {}
+      //  prompt
+      let historySummary = "";
+      if (recentTracks.length > 0 || topArtists.length > 0) {
+        historySummary = `Recent tracks: ${recentTracks.map(item => item.track.name + ' by ' + item.track.artists.map(a => a.name).join(', ')).join('; ')}. Top artists: ${topArtists.map(a => a.name).join(', ')}.`;
+      } else {
+        historySummary = "No recent listening history or top artists found.";
+      }
+      const geminiPrompt = `Based on my Spotify listening history: ${historySummary} Recommend a list of songs that match my music taste. Personalize the recommendations using my preferences, and include ONLY new tracks and no repated artist. If no history is available, suggest popular or trending songs. Return a JSON array of objects with 'song' and 'artist' fields, and only output the array.`;
+      let aiResponse;
+      try {
+        const response = await axios.post(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+          {
+            contents: [
+              {
+                parts: [
+                  { text: geminiPrompt }
+                ]
+              }
+            ]
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "X-goog-api-key": process.env.GEMINI_API_KEY
+            }
+          }
+        );
+        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const match = text.match(/\[.*\]/s);
+        if (match) {
+          aiResponse = JSON.parse(match[0]);
+        } else {
+          aiResponse = [];
+        }
+      } catch (err) {
+        return res.status(500).json({ error: "Gemini recommendation error", details: err.message });
+      }
+      // search the track on spotify
+      const tracks = [];
+      for (const rec of aiResponse) {
+        try {
+          const searchRes = await axios.get(
+            "https://api.spotify.com/v1/search",
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              params: {
+                q: `track:${rec.song} artist:${rec.artist}`,
+                type: "track",
+                limit: 1,
+              },
+            }
+          );
+          const track = searchRes.data.tracks.items[0];
+          if (track && track.id) {
+            tracks.push({ id: track.id, uri: track.uri, name: track.name, artist: track.artists.map(a => a.name).join(", ") });
+          }
+        } catch (err) {
+          // skip if not found
+        }
+      }
+      res.json({ tracks });
+    } catch (error) {
+      res.status(500).json({ error: "Unexpected error in AI recommendations endpoint", details: error.message });
+    }
+  }
+);
+
 module.exports = router;
