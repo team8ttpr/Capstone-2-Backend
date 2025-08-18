@@ -9,7 +9,7 @@ const corsOptions = {
   origin: [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://capstone-2-frontend-tan.vercel.app"
+    "https://capstone-2-frontend-tan.vercel.app",
   ],
   credentials: true,
   methods: ["GET", "POST"],
@@ -21,60 +21,82 @@ const initSocketServer = (server) => {
     io = new Server(server, { cors: corsOptions });
 
     io.on("connection", (socket) => {
-      console.log(`🔗 User ${socket.id} connected to sockets`);
-
       socket.on("register", (userId) => {
-        onlineUsers.set(String(userId), socket.id);
-        socket.userId = String(userId);
-        console.log(`User ${userId} registered with socket ${socket.id}`);
+        const intUserId = parseInt(userId, 10);
+        onlineUsers.set(intUserId, socket.id);
+        socket.userId = intUserId;
       });
 
-      socket.on("test_event", (data) => {
-        console.log("Test event received:", data, "from socket", socket.id);
+      socket.on("test_event", (data) => {});
+
+      socket.on("typing", ({ to }) => {
+        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("typing", { from: socket.userId });
+        }
+      });
+
+      socket.on("stop_typing", ({ to }) => {
+        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("stop_typing", { from: socket.userId });
+        }
+      });
+
+      socket.on("read_messages", async ({ from }) => {
+        const intFrom = parseInt(from, 10);
+        await Message.update(
+          { read: true },
+          {
+            where: {
+              senderId: intFrom,
+              receiverId: socket.userId,
+              read: false,
+            },
+          }
+        );
+        const senderSocketId = onlineUsers.get(intFrom);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messages_read", { by: socket.userId });
+        }
       });
 
       socket.on("send_message", async (data) => {
-        console.log("send_message event received:", data, "from user", socket.userId);
-        const { to, content } = data;
+        const { to, content, type, fileUrl } = data;
         const from = socket.userId;
-        if (!from || !to || !content) return;
+        const intTo = parseInt(to, 10);
+        if (!from || !intTo || (!content && !fileUrl)) return;
 
         try {
           const message = await Message.create({
             senderId: from,
-            receiverId: to,
-            content,
+            receiverId: intTo,
+            content: content || "",
+            type: type || "text",
+            fileUrl: fileUrl || null,
             read: false,
           });
 
-          const recipientSocketId = onlineUsers.get(String(to));
+          const recipientSocketId = onlineUsers.get(intTo);
           if (recipientSocketId) {
-            console.log("Emitting receive_message to recipient:", recipientSocketId);
             io.to(recipientSocketId).emit("receive_message", {
               ...message.toJSON(),
             });
           }
 
-          console.log("Emitting receive_message to sender:", socket.id);
           socket.emit("receive_message", {
             ...message.toJSON(),
           });
-        } catch (err) {
-          console.error("Error handling send_message:", err);
-        }
+        } catch (err) {}
       });
 
       socket.on("disconnect", () => {
         if (socket.userId) {
           onlineUsers.delete(socket.userId);
         }
-        console.log(`🔗 User ${socket.id} disconnected from sockets`);
       });
     });
-  } catch (error) {
-    console.error("❌ Error initializing socket server:");
-    console.error(error);
-  }
+  } catch (error) {}
 };
 
 module.exports = initSocketServer;
