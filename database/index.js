@@ -7,6 +7,7 @@ const UserProfileSticker = require("./userProfileSticker");
 const PostLike = require("./postLikes");
 const Comments = require("./comments");
 const Message = require("./messages");
+const Notification = require("./notifications");
 
 User.hasMany(Posts, {
   foreignKey: "userId",
@@ -43,10 +44,22 @@ Follows.belongsTo(User, {
 });
 
 //Post Likes associations
-Posts.hasMany(PostLike, { foreignKey: "postId", as: "likes" });
-PostLike.belongsTo(Posts, { foreignKey: "postId", as: "post" });
-User.hasMany(PostLike, { foreignKey: "userId", as: "userLikes" });
-PostLike.belongsTo(User, { foreignKey: "userId", as: "user" });
+Posts.hasMany(PostLike, {
+  foreignKey: "postId",
+  as: "likes",
+});
+PostLike.belongsTo(Posts, {
+  foreignKey: "postId",
+  as: "post",
+});
+User.hasMany(PostLike, {
+  foreignKey: "userId",
+  as: "userLikes",
+});
+PostLike.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
 
 // Sticker associations
 User.hasMany(Sticker, {
@@ -95,21 +108,65 @@ Sticker.belongsToMany(User, {
   otherKey: "user_id",
 });
 
-// Comment associations 
-Comments.belongsTo(User, { foreignKey: "user_id", as: "author" });
-Comments.belongsTo(Posts, { foreignKey: "post_id", as: "post" });
-Comments.belongsTo(Comments, { foreignKey: "parent_id", as: "parent" });
-Comments.hasMany(Comments, { foreignKey: "parent_id", as: "replies" });
+// Comment associations
+Comments.belongsTo(User, {
+  foreignKey: "user_id",
+  as: "author",
+});
+Comments.belongsTo(Posts, {
+  foreignKey: "post_id",
+  as: "post",
+});
+Comments.belongsTo(Comments, {
+  foreignKey: "parent_id",
+  as: "parent",
+});
+Comments.hasMany(Comments, {
+  foreignKey: "parent_id",
+  as: "replies",
+});
 
-User.hasMany(Comments, { foreignKey: "user_id" });
-Posts.hasMany(Comments, { foreignKey: "post_id" });
+User.hasMany(Comments, {
+  foreignKey: "user_id",
+});
+Posts.hasMany(Comments, {
+  foreignKey: "post_id",
+});
 
 //message associations
-Message.belongsTo(User, { as: "sender", foreignKey: "senderId" });
-Message.belongsTo(User, { as: "receiver", foreignKey: "receiverId" });
+Message.belongsTo(User, {
+  as: "sender",
+  foreignKey: "senderId",
+});
+Message.belongsTo(User, {
+  as: "receiver",
+  foreignKey: "receiverId",
+});
 
-User.hasMany(Message, { as: "sentMessages", foreignKey: "senderId" });
-User.hasMany(Message, { as: "receivedMessages", foreignKey: "receiverId" });
+User.hasMany(Message, {
+  as: "sentMessages",
+  foreignKey: "senderId",
+});
+User.hasMany(Message, {
+  as: "receivedMessages",
+  foreignKey: "receiverId",
+});
+
+// notification associations
+Notification.belongsTo(User, {
+  as: "recipient",
+  foreignKey: "userId",
+});
+Notification.belongsTo(User, {
+  as: "actor",
+  foreignKey: "fromUserId",
+});
+Notification.belongsTo(Posts, {
+  foreignKey: "postId",
+});
+Notification.belongsTo(Comments, {
+  foreignKey: "commentId",
+});
 
 module.exports = {
   db,
@@ -121,4 +178,5 @@ module.exports = {
   PostLike,
   Comments,
   Message,
+  Notification,
 };

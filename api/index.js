@@ -7,9 +7,10 @@ const postsRouter = require("./posts");
 const profileRouter = require("./profile");
 const stickersRouter = require("./stickers");
 const followRouter = require("./follow");
-const commentsRouter = require('./comments');
-const uploadsRouter = require('./uploads');
-const messagesRouter = require('./messages');
+const commentsRouter = require("./comments");
+const uploadsRouter = require("./uploads");
+const messagesRouter = require("./messages");
+const notificationsRouter = require("./notifications");
 
 router.use("/test-db", testDbRouter);
 router.use("/search-songs", searchRouter);
@@ -19,6 +20,7 @@ router.use("/follow", followRouter);
 router.use("/stickers", stickersRouter);
 router.use("/uploads", uploadsRouter);
 router.use("/messages", messagesRouter);
-router.use('/', commentsRouter); 
+router.use("/notifications", notificationsRouter);
+router.use("/", commentsRouter);
 
 module.exports = router;

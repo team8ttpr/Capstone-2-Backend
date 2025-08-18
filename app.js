@@ -35,11 +35,14 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/api", apiRouter);
 app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
+app.use("/api/messages", require("./api/messages"));
+app.use("/api/notifications", require("./api/notifications"));
+
 
 const server = http.createServer(app);
 
 const initSocketServer = require("./socket-server");
-initSocketServer(server);
+initSocketServer(server, app);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

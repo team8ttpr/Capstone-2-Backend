@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const { Message } = require("./database");
+const { Message, Notification } = require("./database");
 
 let io;
 
@@ -16,15 +16,28 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 };
 
-const initSocketServer = (server) => {
+// Helper to get all online user IDs
+const getSnapshot = () => Array.from(onlineUsers.keys());
+
+// Helper to broadcast the current online user IDs to all clients
+const broadcastSnapshot = () => {
+  io.emit("presence:snapshot", getSnapshot());
+};
+
+const initSocketServer = (server, app) => {
   try {
     io = new Server(server, { cors: corsOptions });
+    if (app) app.set("io", io);
 
     io.on("connection", (socket) => {
+      socket.emit("presence:snapshot", getSnapshot());
+
       socket.on("register", (userId) => {
         const intUserId = parseInt(userId, 10);
         onlineUsers.set(intUserId, socket.id);
         socket.userId = intUserId;
+        io.emit("presence:update", { userId: intUserId, online: true });
+        broadcastSnapshot();
       });
 
       socket.on("test_event", (data) => {});
@@ -93,10 +106,19 @@ const initSocketServer = (server) => {
       socket.on("disconnect", () => {
         if (socket.userId) {
           onlineUsers.delete(socket.userId);
+          io.emit("presence:update", { userId: socket.userId, online: false });
+          broadcastSnapshot();
         }
       });
     });
-  } catch (error) {}
+
+    // Heartbeat every 10 seconds
+    setInterval(() => {
+      broadcastSnapshot();
+    }, 10000);
+  } catch (error) {
+    // Optionally log error
+  }
 };
 
 module.exports = initSocketServer;
