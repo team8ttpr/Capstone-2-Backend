@@ -1,5 +1,12 @@
 const db = require("./db");
-const { User, Posts, Follows, PostLike, Comments } = require("./index");
+const {
+  User,
+  Posts,
+  Follows,
+  PostLike,
+  Comments,
+  Notification,
+} = require("./index");
 
 const seed = async () => {
   try {
@@ -358,7 +365,7 @@ const seed = async () => {
         post_id: 2,
         user_id: 1,
         content: "Thanks! I use this every day while coding.",
-        parent_id: 3, 
+        parent_id: 3,
       },
       {
         post_id: 6,
@@ -381,8 +388,98 @@ const seed = async () => {
     ]);
 
     console.log(`💬 Created ${comments.length} comments`);
+
+    const notifications = await Notification.bulkCreate([
+      // User 1 gets notified that User 2 commented on their post (id:1)
+      {
+        userId: 1,
+        fromUserId: 2,
+        type: "comment",
+        postId: 1,
+        commentId: 1,
+        content: "Love this admin vibe! Great selection of tracks.",
+        seen: false,
+      },
+      // User 1 gets notified that User 3 commented on their post (id:1)
+      {
+        userId: 1,
+        fromUserId: 3,
+        type: "comment",
+        postId: 1,
+        commentId: 2,
+        content: "Admin always has the best music taste!",
+        seen: false,
+      },
+      // User 2 gets notified that User 4 commented on their post (id:2)
+      {
+        userId: 2,
+        fromUserId: 4,
+        type: "comment",
+        postId: 2,
+        commentId: 3,
+        content: "This lo-fi playlist is perfect for work. Thanks for sharing!",
+        seen: false,
+      },
+      // User 2 gets notified that User 1 replied to comment 3
+      {
+        userId: 2,
+        fromUserId: 1,
+        type: "comment",
+        postId: 2,
+        commentId: 4,
+        content: "Thanks! I use this every day while coding.",
+        seen: false,
+      },
+      // User 6’s owner (let’s say User 4) gets notified that User 1 commented
+      {
+        userId: 4,
+        fromUserId: 1,
+        type: "comment",
+        postId: 6,
+        commentId: 5,
+        content: "Late night drives with this track hit different 🚗",
+        seen: false,
+      },
+      // User 4 gets notified that User 3 replied to comment 5
+      {
+        userId: 4,
+        fromUserId: 3,
+        type: "comment",
+        postId: 6,
+        commentId: 6,
+        content: "Totally agree! Perfect vibe for cruising.",
+        seen: false,
+      },
+      // User 5’s owner (say User 1) gets notified that User 2 commented
+      {
+        userId: 1,
+        fromUserId: 2,
+        type: "comment",
+        postId: 11,
+        commentId: 7,
+        content: "2000s hits are the best! This takes me back.",
+        seen: false,
+      },
+      // Extra: simulate a follow event
+      {
+        userId: 1,
+        fromUserId: 3,
+        type: "new_follower",
+        seen: false,
+      },
+      // Extra: simulate a post like
+      {
+        userId: 2,
+        fromUserId: 4,
+        type: "post_liked",
+        postId: 6,
+        seen: false,
+      },
+    ]);
+
+    console.log(`🔔 Created ${notifications.length} notifications`);
+
     console.log("🌱 Seeded the database successfully!");
-    
   } catch (error) {
     console.error("Error seeding database:", error);
   } finally {

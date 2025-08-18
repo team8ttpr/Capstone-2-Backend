@@ -3,9 +3,9 @@ const router = express.Router();
 const { User, Posts, Follows } = require("../database");
 const { authenticateJWT } = require("../auth");
 const { Op } = require("sequelize");
-const multer = require('multer');
-const path = require('path');
-const { uploadSticker, cloudinary } = require('../config/cloudinary');
+const multer = require("multer");
+const path = require("path");
+const { uploadSticker, cloudinary } = require("../config/cloudinary");
 
 // Configure multer for file uploads
 const upload = multer({
@@ -18,11 +18,25 @@ router.get("/me", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'wallpaperURL', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems',
-        'showPosts', 'showUsername', 'showDateJoined', 'showSpotifyStatus'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "wallpaperURL",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+        "showPosts",
+        "showUsername",
+        "showDateJoined",
+        "showSpotifyStatus",
+      ],
     });
 
     if (!user) {
@@ -129,8 +143,19 @@ router.get("/all", authenticateJWT, async (req, res) => {
 // Update current user's profile
 router.patch("/me", authenticateJWT, async (req, res) => {
   try {
-    const { firstName, lastName, bio, profileImage, wallpaperURL, profileTheme, showPosts, showUsername, showDateJoined, showSpotifyStatus } = req.body;
-    
+    const {
+      firstName,
+      lastName,
+      bio,
+      profileImage,
+      wallpaperURL,
+      profileTheme,
+      showPosts,
+      showUsername,
+      showDateJoined,
+      showSpotifyStatus,
+    } = req.body;
+
     // Validate data
     const updateData = {};
 
@@ -174,7 +199,9 @@ router.patch("/me", authenticateJWT, async (req, res) => {
     if (wallpaperURL !== undefined) {
       // Basic URL validation
       if (wallpaperURL && !wallpaperURL.match(/^https?:\/\/.+/)) {
-        return res.status(400).json({ error: "Wallpaper URL must be a valid URL" });
+        return res
+          .status(400)
+          .json({ error: "Wallpaper URL must be a valid URL" });
       }
       updateData.wallpaperURL = wallpaperURL || null;
     }
@@ -191,53 +218,65 @@ router.patch("/me", authenticateJWT, async (req, res) => {
       }
       updateData.profileTheme = profileTheme || "default";
     }
-//for visibikity settings
+    //for visibikity settings
     if (showPosts !== undefined) {
-      if (typeof showPosts !== 'boolean') {
+      if (typeof showPosts !== "boolean") {
         return res.status(400).json({ error: "showPosts must be a boolean" });
       }
       updateData.showPosts = showPosts;
     }
     if (showUsername !== undefined) {
-      if (typeof showUsername !== 'boolean') {
-        return res.status(400).json({ error: "showUsername must be a boolean" });
+      if (typeof showUsername !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showUsername must be a boolean" });
       }
       updateData.showUsername = showUsername;
     }
     if (showDateJoined !== undefined) {
-      if (typeof showDateJoined !== 'boolean') {
-        return res.status(400).json({ error: "showDateJoined must be a boolean" });
+      if (typeof showDateJoined !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showDateJoined must be a boolean" });
       }
       updateData.showDateJoined = showDateJoined;
     }
     if (showSpotifyStatus !== undefined) {
-      if (typeof showSpotifyStatus !== 'boolean') {
-        return res.status(400).json({ error: "showSpotifyStatus must be a boolean" });
+      if (typeof showSpotifyStatus !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showSpotifyStatus must be a boolean" });
       }
       updateData.showSpotifyStatus = showSpotifyStatus;
     }
-//for visibikity settings
+    //for visibikity settings
     if (showPosts !== undefined) {
-      if (typeof showPosts !== 'boolean') {
+      if (typeof showPosts !== "boolean") {
         return res.status(400).json({ error: "showPosts must be a boolean" });
       }
       updateData.showPosts = showPosts;
     }
     if (showUsername !== undefined) {
-      if (typeof showUsername !== 'boolean') {
-        return res.status(400).json({ error: "showUsername must be a boolean" });
+      if (typeof showUsername !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showUsername must be a boolean" });
       }
       updateData.showUsername = showUsername;
     }
     if (showDateJoined !== undefined) {
-      if (typeof showDateJoined !== 'boolean') {
-        return res.status(400).json({ error: "showDateJoined must be a boolean" });
+      if (typeof showDateJoined !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showDateJoined must be a boolean" });
       }
       updateData.showDateJoined = showDateJoined;
     }
     if (showSpotifyStatus !== undefined) {
-      if (typeof showSpotifyStatus !== 'boolean') {
-        return res.status(400).json({ error: "showSpotifyStatus must be a boolean" });
+      if (typeof showSpotifyStatus !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "showSpotifyStatus must be a boolean" });
       }
       updateData.showSpotifyStatus = showSpotifyStatus;
     }
@@ -254,11 +293,24 @@ router.patch("/me", authenticateJWT, async (req, res) => {
     // Fetch updated user
     const updatedUser = await User.findByPk(req.user.id, {
       attributes: [
-        'id', 'username', 'email', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'wallpaperURL', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt',
-        'showPosts', 'showUsername', 'showDateJoined', 'showSpotifyStatus'
-      ]
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "wallpaperURL",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "showPosts",
+        "showUsername",
+        "showDateJoined",
+        "showSpotifyStatus",
+      ],
     });
 
     res.json(updatedUser.toJSON());
@@ -382,11 +434,24 @@ router.get("/:username", async (req, res) => {
     const user = await User.findOne({
       where: { username: req.params.username },
       attributes: [
-        'id', 'username', 'firstName', 'lastName', 'bio', 
-        'profileImage', 'wallpaperURL', 'spotifyDisplayName', 'spotifyProfileImage',
-        'avatarURL', 'profileTheme', 'createdAt', 'spotifyItems',
-        'showPosts', 'showUsername', 'showDateJoined', 'showSpotifyStatus'
-      ]
+        "id",
+        "username",
+        "firstName",
+        "lastName",
+        "bio",
+        "profileImage",
+        "wallpaperURL",
+        "spotifyDisplayName",
+        "spotifyProfileImage",
+        "avatarURL",
+        "profileTheme",
+        "createdAt",
+        "spotifyItems",
+        "showPosts",
+        "showUsername",
+        "showDateJoined",
+        "showSpotifyStatus",
+      ],
     });
 
     if (!user) {
@@ -501,6 +566,28 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
         followerId: req.user.id,
         followingId: userToFollow.id,
       });
+
+      // 🔔 Realtime notify the person who was just followed
+      const io = req.app.get("io"); // <-- requires socket-server to call app.set("io", io)
+      // Optional: include actor’s username for nicer UI
+      const actor = await User.findByPk(req.user.id, {
+        attributes: ["id", "username"],
+      });
+
+      // Optional persistence (if you added Notification model and export it)
+      // const { Notification } = require("../database");
+      // await Notification.create({
+      //   userId: userToFollow.id,
+      //   fromUserId: req.user.id,
+      //   type: "new_follower",
+      // });
+
+      io?.to(String(userToFollow.id)).emit("notification:new", {
+        type: "new_follower",
+        fromUserId: actor.id,
+        fromUsername: actor.username,
+      });
+
       return res.json({ message: "Followed successfully" });
     }
   } catch (error) {
@@ -542,36 +629,47 @@ router.get("/search", authenticateJWT, async (req, res) => {
 });
 
 // upload wallpaper or profile picture to Cloudinary (In Use folder)
-router.post('/upload', authenticateJWT, upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+router.post(
+  "/upload",
+  authenticateJWT,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      const type =
+        req.body.type === "wallpaper" ? "Wallpaper" : "Profile Picture";
+      const folder = `TTP-Capstone 2/In Use/${type}`;
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder,
+            resource_type: "image",
+            allowed_formats: ["jpg", "jpeg", "png", "gif", "webp"],
+            transformation: [
+              { quality: "auto", fetch_format: "auto" },
+              type === "Profile Picture"
+                ? { width: 500, height: 500, crop: "limit" }
+                : { width: 1920, height: 1080, crop: "limit" },
+            ],
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+      res.json({
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Failed to upload image" });
     }
-    const type = req.body.type === 'wallpaper' ? 'Wallpaper' : 'Profile Picture';
-    const folder = `TTP-Capstone 2/In Use/${type}`;
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder,
-          resource_type: 'image',
-          allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-          transformation: [
-            { quality: 'auto', fetch_format: 'auto' },
-            type === 'Profile Picture' ? { width: 500, height: 500, crop: 'limit' } : { width: 1920, height: 1080, crop: 'limit' }
-          ]
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        }
-      );
-      stream.end(req.file.buffer);
-    });
-    res.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload image' });
   }
-});
+);
 
 module.exports = router;

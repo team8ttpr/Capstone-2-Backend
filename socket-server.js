@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const { Message } = require("./database");
+const { Message, Notification } = require("./database");
 
 let io;
 
@@ -24,9 +24,10 @@ const broadcastSnapshot = () => {
   io.emit("presence:snapshot", getSnapshot());
 };
 
-const initSocketServer = (server) => {
+const initSocketServer = (server, app) => {
   try {
     io = new Server(server, { cors: corsOptions });
+    if (app) app.set("io", io); // <-- expose io to Express routes
 
     io.on("connection", (socket) => {
       console.log(`🔗 User ${socket.id} connected to sockets`);
