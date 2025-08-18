@@ -8,6 +8,8 @@ const profileRouter = require("./profile");
 const stickersRouter = require("./stickers");
 const followRouter = require("./follow");
 const commentsRouter = require("./comments");
+const uploadsRouter = require("./uploads");
+const messagesRouter = require("./messages");
 const notificationsRouter = require("./notifications");
 
 router.use("/test-db", testDbRouter);
@@ -16,7 +18,9 @@ router.use("/posts", postsRouter);
 router.use("/profile", profileRouter);
 router.use("/follow", followRouter);
 router.use("/stickers", stickersRouter);
-router.use("/", commentsRouter);
+router.use("/uploads", uploadsRouter);
+router.use("/messages", messagesRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/", commentsRouter);
 
 module.exports = router;

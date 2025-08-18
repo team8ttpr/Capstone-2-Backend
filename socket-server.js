@@ -27,65 +27,80 @@ const broadcastSnapshot = () => {
 const initSocketServer = (server, app) => {
   try {
     io = new Server(server, { cors: corsOptions });
-    if (app) app.set("io", io); // <-- expose io to Express routes
+    if (app) app.set("io", io);
 
     io.on("connection", (socket) => {
-      console.log(`🔗 User ${socket.id} connected to sockets`);
-
-      // Tell just this socket who is online now
       socket.emit("presence:snapshot", getSnapshot());
 
       socket.on("register", (userId) => {
-        onlineUsers.set(String(userId), socket.id);
-        socket.userId = String(userId);
-        console.log(`User ${userId} registered with socket ${socket.id}`);
-
-        // Announce + refresh everyone
-        io.emit("presence:update", { userId, online: true });
+        const intUserId = parseInt(userId, 10);
+        onlineUsers.set(intUserId, socket.id);
+        socket.userId = intUserId;
+        io.emit("presence:update", { userId: intUserId, online: true });
         broadcastSnapshot();
       });
 
-      socket.on("test_event", (data) => {
-        console.log("Test event received:", data, "from socket", socket.id);
+      socket.on("test_event", (data) => {});
+
+      socket.on("typing", ({ to }) => {
+        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("typing", { from: socket.userId });
+        }
+      });
+
+      socket.on("stop_typing", ({ to }) => {
+        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (recipientSocketId) {
+          io.to(recipientSocketId).emit("stop_typing", { from: socket.userId });
+        }
+      });
+
+      socket.on("read_messages", async ({ from }) => {
+        const intFrom = parseInt(from, 10);
+        await Message.update(
+          { read: true },
+          {
+            where: {
+              senderId: intFrom,
+              receiverId: socket.userId,
+              read: false,
+            },
+          }
+        );
+        const senderSocketId = onlineUsers.get(intFrom);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messages_read", { by: socket.userId });
+        }
       });
 
       socket.on("send_message", async (data) => {
-        console.log(
-          "send_message event received:",
-          data,
-          "from user",
-          socket.userId
-        );
-        const { to, content } = data;
+        const { to, content, type, fileUrl } = data;
         const from = socket.userId;
-        if (!from || !to || !content) return;
+        const intTo = parseInt(to, 10);
+        if (!from || !intTo || (!content && !fileUrl)) return;
 
         try {
           const message = await Message.create({
             senderId: from,
-            receiverId: to,
-            content,
+            receiverId: intTo,
+            content: content || "",
+            type: type || "text",
+            fileUrl: fileUrl || null,
             read: false,
           });
 
-          const recipientSocketId = onlineUsers.get(String(to));
+          const recipientSocketId = onlineUsers.get(intTo);
           if (recipientSocketId) {
-            console.log(
-              "Emitting receive_message to recipient:",
-              recipientSocketId
-            );
             io.to(recipientSocketId).emit("receive_message", {
               ...message.toJSON(),
             });
           }
 
-          console.log("Emitting receive_message to sender:", socket.id);
           socket.emit("receive_message", {
             ...message.toJSON(),
           });
-        } catch (err) {
-          console.error("Error handling send_message:", err);
-        }
+        } catch (err) {}
       });
 
       socket.on("disconnect", () => {
@@ -94,18 +109,15 @@ const initSocketServer = (server, app) => {
           io.emit("presence:update", { userId: socket.userId, online: false });
           broadcastSnapshot();
         }
-        console.log(`🔗 User ${socket.id} disconnected from sockets`);
       });
     });
 
-    // 🔔 heartbeat every 10 seconds
+    // Heartbeat every 10 seconds
     setInterval(() => {
-      console.log("[presence] heartbeat tick");
       broadcastSnapshot();
-    }, 10_000);
+    }, 10000);
   } catch (error) {
-    console.error("❌ Error initializing socket server:");
-    console.error(error);
+    // Optionally log error
   }
 };
 

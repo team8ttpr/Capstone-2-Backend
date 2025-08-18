@@ -1,4 +1,5 @@
 require("dotenv").config();
+require("./config/cloudinary");
 const express = require("express");
 const morgan = require("morgan");
 const path = require("path");
@@ -36,6 +37,7 @@ app.use("/auth", authRouter);
 app.use("/auth/spotify", spotifyRouter);
 app.use("/api/messages", require("./api/messages"));
 app.use("/api/notifications", require("./api/notifications"));
+
 
 const server = http.createServer(app);
 
