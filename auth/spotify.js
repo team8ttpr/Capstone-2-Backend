@@ -980,7 +980,7 @@ router.get(
       const topGenresStr = topGenres.length > 0
         ? topGenres.join(', ')
         : 'None';
-      const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of 20 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
+      const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of AT LEAST 50 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
       let aiResponse;
       try {
         const response = await axios.post(
