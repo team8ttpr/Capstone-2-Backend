@@ -740,4 +740,183 @@ router.get(
   }
 );
 
+// generate uer playlist off of prompt
+// receives a playlist prompt from the frontend, sends it to Gemini AI,
+// validates the response, searches Spotify for matching tracks, creates a playlist,
+// and returns the playlist URL rawr
+router.post(
+  "/ai-playlist",
+  authenticateJWT,
+  requireSpotifyAuth,
+  async (req, res) => {
+    try {
+      // 1. get the prompt from the frontend
+      const { prompt } = req.body;
+      //  validate the prompt: must be a string, not too short, and music-related
+      if (
+        !prompt ||
+        typeof prompt !== "string" ||
+        prompt.trim().length < 5 ||
+        /^(hi|hello|hey)$/i.test(prompt.trim())
+      ) {
+        // if prompt is invalid, send a friendly message
+        return res.json({
+          message: "Hi there! Send a mood, genre, or vibe and I can make a playlist for you 😊",
+        });
+      }
+
+      //  send the prompt to gemini ai and get a list of songs/artists
+      let aiResponse;
+      try {
+        aiResponse = await getGeminiPlaylist(
+          `You are an expert playlist concierge. Given this user message: "${prompt}", infer the musical intent and generate a playlist of exactly 20 songs. For each song, return a JSON array of objects with "song" and "artist" fields. Only output the array, no extra text. If the message is not music-related, return an empty array.`
+        );
+      } catch (err) {
+        // if gemini fails, send a fallback message
+        console.error("Gemini AI error:", err);
+        return res.json({
+          message: "Sorry, I couldn't generate a playlist. Try a different prompt.",
+        });
+      }
+
+      //  validate gemini's output: must be a non-empty array
+      if (!Array.isArray(aiResponse) || aiResponse.length === 0) {
+        return res.json({
+          message: "Send a mood, genre, or vibe and I can make a playlist for you.",
+        });
+      }
+
+      // maximum of 20 songs
+      const MAX_SONGS = 20;
+      const limitedResponse = aiResponse.slice(0, MAX_SONGS);
+
+      //  for each song/artist, search spotify for a track id
+      const user = await User.findByPk(req.user.id);
+      const accessToken = await getValidSpotifyToken(user);
+      const trackUris = [];
+      for (const { song, artist } of limitedResponse) {
+        try {
+          // search spotify for the track
+          const searchRes = await axios.get(
+            "https://api.spotify.com/v1/search",
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              params: {
+                q: `track:${song} artist:${artist}`,
+                type: "track",
+                limit: 1,
+              },
+            }
+          );
+          const track = searchRes.data.tracks.items[0];
+          if (track && track.uri) trackUris.push(track.uri);
+        } catch (err) {
+          // log errors but continue
+          console.error(
+            `Spotify search error for ${song} by ${artist}:`,
+            err.message
+          );
+        }
+      }
+
+      // if no tracks found, send a fallback message
+      if (trackUris.length === 0) {
+        return res.json({
+          message: "Sorry, I couldn't find any matching songs. Try a different prompt.",
+        });
+      }
+
+      //  create a new playlist for the user
+      let playlistId, playlistUrl;
+      try {
+        const playlistRes = await axios.post(
+          `https://api.spotify.com/v1/users/${user.spotifyId}/playlists`,
+          {
+            name: `AI Playlist: ${prompt}`,
+            description: `Created by AI on Spotter for: ${prompt}`,
+            public: false,
+          },
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        playlistId = playlistRes.data.id;
+        playlistUrl = playlistRes.data.external_urls.spotify;
+      } catch (err) {
+        // if playlist creation fails, send a fallback message
+        console.error("Spotify playlist creation error:", err.message);
+        return res.json({
+          message: "Sorry, I couldn't create a playlist. Try again later.",
+        });
+      }
+
+      // add tracks to the playlist
+      try {
+        await axios.post(
+          `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+          { uris: trackUris },
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+      } catch (err) {
+        // if adding tracks fails, send a partial success message
+        console.error("Spotify add tracks error:", err.message);
+        return res.json({
+          message: "Playlist created, but couldn't add songs. Try again later.",
+        });
+      }
+
+      //  send the playlist url back to the frontend
+      return res.json({ playlistUrl });
+    } catch (error) {
+      // catch-all error handler
+      console.error("AI Playlist error:", error);
+      return res.json({
+        message: "Send a mood, genre, or vibe and I can make a playlist for you.",
+      });
+    }
+  }
+);
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+async function getGeminiPlaylist(prompt) {
+  try {
+    //AI prompt default
+    const geminiPrompt = `You are an expert music playlist curator. Given the user input: "${prompt}", determine if it expresses a music-related intent. If yes, infer the intended mood, activity, genre, or theme and generate a playlist of exactly 20 unique songs. Each entry must be an object with \"song\" and \"artist\" fields, diverse across artists/eras/genres when appropriate, avoiding duplicates and overly obscure tracks unless explicitly requested. If the input is unrelated to music or too unclear, return an empty array. Output ONLY a valid JSON array of objects in the format: [{\"song\": \"...\", \"artist\": \"...\"}] with no extra text, notes, or formatting.`;
+
+    const response = await axios.post(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        contents: [
+          {
+            parts: [
+              {
+                text: geminiPrompt
+              }
+            ]
+          }
+        ]
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": GEMINI_API_KEY
+        }
+      }
+    );
+
+    // parse Gemini's response
+    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("No response from Gemini");
+
+    // Try to extract JSON from the response
+    const match = text.match(/\[.*\]/s);
+    if (!match) throw new Error("No JSON array found in Gemini response");
+    return JSON.parse(match[0]);
+  } catch (err) {
+    console.error("Gemini API error:", err.message);
+    throw err;
+  }
+}
+
 module.exports = router;
