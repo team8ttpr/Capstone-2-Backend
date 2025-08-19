@@ -5,6 +5,13 @@ let io;
 
 const onlineUsers = new Map();
 
+// Helper to get liked posts
+const emitToUser = (userId, event, payload) => {
+  const sid =
+    onlineUsers.get(String(userId)) || onlineUsers.get(parseInt(userId, 10)); // be tolerant of id types
+  if (sid && io) io.to(sid).emit(event, payload);
+};
+
 const corsOptions = {
   origin: [
     "http://localhost:3000",
@@ -122,3 +129,4 @@ const initSocketServer = (server, app) => {
 };
 
 module.exports = initSocketServer;
+module.exports.emitToUser = emitToUser;
