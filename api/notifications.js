@@ -18,14 +18,20 @@ router.get("/", authenticateJWT, async (req, res) => {
         {
           model: User,
           as: "actor",
-          attributes: ["id", "username", "avatarURL", "profileImage"],
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
         },
-        { model: Posts, attributes: ["id", "title"] },
-        { model: Comments, attributes: ["id", "content"] },
       ],
       order: [["createdAt", "DESC"]],
       limit: 50,
     });
+
     res.json(rows);
   } catch (e) {
     console.error("Error fetching notifications:", e);
