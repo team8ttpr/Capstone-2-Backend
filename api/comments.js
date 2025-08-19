@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { Comments, User } = require("../database");
+const { Comments, User, Posts, Notification } = require("../database");
 const { authenticateJWT } = require("../auth");
 
 // get the comments of a specific post
@@ -40,7 +40,7 @@ router.post("/posts/:postId/comments", authenticateJWT, async (req, res) => {
     const { content, parentId } = req.body;
     const userId = req.user.id;
 
-    // Create the comment
+    // 1) create comment
     const comment = await Comments.create({
       post_id: postId,
       user_id: userId,
@@ -48,6 +48,7 @@ router.post("/posts/:postId/comments", authenticateJWT, async (req, res) => {
       parent_id: parentId || null,
     });
 
+    // 2) return shape for the client (author included)
     const createdComment = await Comments.findByPk(comment.id, {
       include: [
         {
@@ -65,14 +66,11 @@ router.post("/posts/:postId/comments", authenticateJWT, async (req, res) => {
       ],
     });
 
-    // 🔔 Notify post owner
-    const { Posts, Notification } = require("../database");
+    // 3) notify post owner
     const post = await Posts.findByPk(postId);
 
     if (post && post.userId !== userId) {
-      const io = req.app.get("io");
-
-      // Save notification
+      // persist notification
       const notif = await Notification.create({
         userId: post.userId, // recipient (post owner)
         fromUserId: userId, // actor (commenter)
@@ -82,21 +80,36 @@ router.post("/posts/:postId/comments", authenticateJWT, async (req, res) => {
         content: comment.content,
       });
 
-      // Enrich with actor details
-      const actor = await User.findByPk(userId, {
+      // build actor with the EXACT keys the frontend uses
+      const actorUser = await User.findByPk(userId, {
         attributes: [
           "id",
           "username",
+          "spotifyDisplayName",
           "profileImage",
           "spotifyProfileImage",
           "avatarURL",
         ],
       });
 
-      // Realtime push
+      const io = req.app.get("io");
       io?.to(String(post.userId)).emit("notification:new", {
-        ...notif.toJSON(),
-        actor,
+        id: notif.id,
+        type: "comment",
+        postId: post.id,
+        commentId: comment.id,
+        content: comment.content,
+        seen: false,
+        createdAt: notif.createdAt, // keep DB timestamp
+        actor: {
+          id: actorUser.id,
+          username: actorUser.username,
+          spotifyDisplayName: actorUser.spotifyDisplayName,
+          // IMPORTANT: image fields your component already checks:
+          spotifyProfileImage: actorUser.spotifyProfileImage,
+          profileImage: actorUser.profileImage,
+          avatarURL: actorUser.avatarURL,
+        },
       });
     }
 
