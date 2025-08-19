@@ -561,7 +561,6 @@ router.post("/:username/follow", authenticateJWT, async (req, res) => {
     }
 
     // create follow
-    // create follow row first...
     await Follows.create({
       followerId: req.user.id,
       followingId: userToFollow.id,
