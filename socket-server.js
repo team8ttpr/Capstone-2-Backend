@@ -5,10 +5,9 @@ let io;
 
 const onlineUsers = new Map();
 
-// Helper to get liked posts
+// Helper to emit to a specific user by their userId (uses the onlineUsers map)
 const emitToUser = (userId, event, payload) => {
-  const sid =
-    onlineUsers.get(String(userId)) || onlineUsers.get(parseInt(userId, 10)); // be tolerant of id types
+  const sid = onlineUsers.get(Number(userId));
   if (sid && io) io.to(sid).emit(event, payload);
 };
 
@@ -35,44 +34,54 @@ const initSocketServer = (server, app) => {
   try {
     io = new Server(server, { cors: corsOptions });
     if (app) app.set("io", io);
-
-    // Helper to emit to a specific user by their userId (uses the onlineUsers map)
-    const emitToUser = (userId, event, payload) => {
-      const sid = onlineUsers.get(Number(userId));
-      if (sid) io.to(sid).emit(event, payload);
-    };
     if (app) app.set("emitToUser", emitToUser);
 
     io.on("connection", (socket) => {
       socket.emit("presence:snapshot", getSnapshot());
 
       socket.on("register", (userId) => {
-        const intUserId = parseInt(userId, 10);
+        const intUserId = Number(userId);
+        console.log("REGISTER: userId", intUserId, "socketId", socket.id);
+        if (!intUserId) {
+          console.warn("register: invalid userId", userId);
+          return;
+        }
         onlineUsers.set(intUserId, socket.id);
         socket.userId = intUserId;
-        socket.join(String(intUserId));
+        socket.join(intUserId);
         io.emit("presence:update", { userId: intUserId, online: true });
         broadcastSnapshot();
+        console.log("Current onlineUsers map:", Array.from(onlineUsers.entries()));
       });
 
       socket.on("test_event", (data) => {});
 
       socket.on("typing", ({ to }) => {
-        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (!socket.userId) return;
+        const recipientSocketId = onlineUsers.get(Number(to));
         if (recipientSocketId) {
           io.to(recipientSocketId).emit("typing", { from: socket.userId });
         }
       });
 
       socket.on("stop_typing", ({ to }) => {
-        const recipientSocketId = onlineUsers.get(parseInt(to, 10));
+        if (!socket.userId) return;
+        const recipientSocketId = onlineUsers.get(Number(to));
         if (recipientSocketId) {
           io.to(recipientSocketId).emit("stop_typing", { from: socket.userId });
         }
       });
 
       socket.on("read_messages", async ({ from }) => {
-        const intFrom = parseInt(from, 10);
+        if (!socket.userId) {
+          console.warn("read_messages: socket.userId is undefined, aborting.");
+          return;
+        }
+        const intFrom = Number(from);
+        if (!intFrom) {
+          console.warn("read_messages: invalid from value", from);
+          return;
+        }
         await Message.update(
           { read: true },
           {
@@ -90,12 +99,16 @@ const initSocketServer = (server, app) => {
       });
 
       socket.on("send_message", async (data) => {
+        if (!socket.userId) return;
         const { to, content, type, fileUrl } = data;
         const from = socket.userId;
-        const intTo = parseInt(to, 10);
+        const intTo = Number(to);
         if (!from || !intTo || (!content && !fileUrl)) return;
 
         try {
+          console.log("SEND_MESSAGE: from", from, "to", intTo, "content", content);
+          console.log("Current onlineUsers map:", Array.from(onlineUsers.entries()));
+
           const message = await Message.create({
             senderId: from,
             receiverId: intTo,
@@ -105,17 +118,41 @@ const initSocketServer = (server, app) => {
             read: false,
           });
 
+          // Create a notification in the DB for the recipient and emit in real time
+          if (from !== intTo) {
+            const notif = await Notification.create({
+              userId: intTo,
+              type: "message",
+              fromUserId: from,
+              message: "You have a new message.",
+              read: false,
+            });
+            const recipientSocketId = onlineUsers.get(intTo);
+            if (recipientSocketId) {
+              io.to(recipientSocketId).emit("notification:new", notif.toJSON());
+              console.log("Emitted notification:new to", intTo, "socket:", recipientSocketId);
+            } else {
+              console.log("No recipient socket found for notification", intTo);
+            }
+          }
+
           const recipientSocketId = onlineUsers.get(intTo);
+          console.log("Emitting receive_message to", intTo, "socket:", recipientSocketId);
           if (recipientSocketId) {
             io.to(recipientSocketId).emit("receive_message", {
               ...message.toJSON(),
             });
+            console.log("Emitted receive_message to", intTo, "socket:", recipientSocketId);
+          } else {
+            console.log("No recipient socket found for", intTo);
           }
 
           socket.emit("receive_message", {
             ...message.toJSON(),
           });
-        } catch (err) {}
+        } catch (err) {
+          console.error("Error in send_message:", err);
+        }
       });
 
       socket.on("disconnect", () => {
@@ -123,6 +160,7 @@ const initSocketServer = (server, app) => {
           onlineUsers.delete(socket.userId);
           io.emit("presence:update", { userId: socket.userId, online: false });
           broadcastSnapshot();
+          console.log("User disconnected:", socket.userId);
         }
       });
     });
@@ -132,9 +170,11 @@ const initSocketServer = (server, app) => {
       broadcastSnapshot();
     }, 10000);
   } catch (error) {
-    // Optionally log error
+    console.error("Socket server error:", error);
   }
 };
 
-module.exports = initSocketServer;
-module.exports.emitToUser = emitToUser;
+module.exports = {
+  initSocketServer,
+  emitToUser,
+};
