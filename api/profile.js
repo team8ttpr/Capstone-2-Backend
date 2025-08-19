@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { User, Posts, Follows } = require("../database");
+const { User, Posts, Follows, Notification } = require("../database");
 const { authenticateJWT } = require("../auth");
 const { Op } = require("sequelize");
 const multer = require("multer");
@@ -530,68 +530,89 @@ router.get("/:username/posts", async (req, res) => {
 });
 
 // Follow/unfollow user
+// Follow/unfollow user
 router.post("/:username/follow", authenticateJWT, async (req, res) => {
   try {
     const userToFollow = await User.findOne({
       where: { username: req.params.username },
     });
-
-    if (!userToFollow) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
+    if (!userToFollow) return res.status(404).json({ error: "User not found" });
     if (userToFollow.id === req.user.id) {
       return res.status(400).json({ error: "You cannot follow yourself" });
     }
 
-    const existingFollow = await Follows.findOne({
-      where: {
-        followerId: req.user.id,
-        followingId: userToFollow.id,
-      },
+    const existing = await Follows.findOne({
+      where: { followerId: req.user.id, followingId: userToFollow.id },
     });
 
-    if (existingFollow) {
-      // Unfollow
+    if (existing) {
       await Follows.destroy({
+        where: { followerId: req.user.id, followingId: userToFollow.id },
+      });
+      // optional: clean up any prior follow notif
+      await Notification.destroy({
         where: {
-          followerId: req.user.id,
-          followingId: userToFollow.id,
+          userId: userToFollow.id,
+          fromUserId: req.user.id,
+          type: "new_follower",
         },
       });
       return res.json({ message: "Unfollowed successfully" });
-    } else {
-      // Follow
-      await Follows.create({
-        followerId: req.user.id,
-        followingId: userToFollow.id,
-      });
-
-      // 🔔 Realtime notify the person who was just followed
-      const io = req.app.get("io"); // <-- requires socket-server to call app.set("io", io)
-      // Optional: include actor’s username for nicer UI
-      const actor = await User.findByPk(req.user.id, {
-        attributes: ["id", "username"],
-      });
-
-      // Optional persistence (if you added Notification model and export it)
-      // const { Notification } = require("../database");
-      // await Notification.create({
-      //   userId: userToFollow.id,
-      //   fromUserId: req.user.id,
-      //   type: "new_follower",
-      // });
-
-      io?.to(String(userToFollow.id)).emit("notification:new", {
-        type: "new_follower",
-        fromUserId: actor.id,
-        fromUsername: actor.username,
-      });
-
-      return res.json({ message: "Followed successfully" });
     }
-  } catch (error) {
-    console.error("Error following/unfollowing user:", error);
+
+    // create follow
+    await Follows.create({
+      followerId: req.user.id,
+      followingId: userToFollow.id,
+    });
+
+    // load actor fields for UI
+    const actor = await User.findByPk(req.user.id, {
+      attributes: [
+        "id",
+        "username",
+        "spotifyDisplayName",
+        "profileImage",
+        "spotifyProfileImage",
+        "avatarURL",
+      ],
+    });
+
+    // persist notification so it survives refresh
+    const notif = await Notification.create({
+      userId: userToFollow.id, // recipient
+      fromUserId: actor.id, // actor
+      type: "new_follower",
+    });
+
+    // build nice display values
+    const fromDisplayName = actor.spotifyDisplayName || actor.username;
+    const fromAvatarURL =
+      actor.profileImage || actor.spotifyProfileImage || actor.avatarURL;
+
+    // realtime emit to the followed user
+    const io = req.app.get("io");
+    io?.to(String(userToFollow.id)).emit("notification:new", {
+      id: notif.id,
+      type: "new_follower",
+      createdAt: notif.createdAt,
+      seen: false,
+      fromUserId: actor.id,
+      fromUsername: actor.username,
+      fromDisplayName,
+      fromAvatarURL,
+      actor: {
+        // optional nested for components that expect an object
+        id: actor.id,
+        username: actor.username,
+        displayName: fromDisplayName,
+        avatarURL: fromAvatarURL,
+      },
+    });
+
+    return res.json({ message: "Followed successfully" });
+  } catch (err) {
+    console.error("Error following/unfollowing user:", err);
     res.status(500).json({ error: "Failed to follow/unfollow user" });
   }
 });

@@ -5,6 +5,13 @@ let io;
 
 const onlineUsers = new Map();
 
+// Helper to get liked posts
+const emitToUser = (userId, event, payload) => {
+  const sid =
+    onlineUsers.get(String(userId)) || onlineUsers.get(parseInt(userId, 10)); // be tolerant of id types
+  if (sid && io) io.to(sid).emit(event, payload);
+};
+
 const corsOptions = {
   origin: [
     "http://localhost:3000",
@@ -29,6 +36,13 @@ const initSocketServer = (server, app) => {
     io = new Server(server, { cors: corsOptions });
     if (app) app.set("io", io);
 
+    // Helper to emit to a specific user by their userId (uses the onlineUsers map)
+    const emitToUser = (userId, event, payload) => {
+      const sid = onlineUsers.get(Number(userId));
+      if (sid) io.to(sid).emit(event, payload);
+    };
+    if (app) app.set("emitToUser", emitToUser);
+
     io.on("connection", (socket) => {
       socket.emit("presence:snapshot", getSnapshot());
 
@@ -36,6 +50,7 @@ const initSocketServer = (server, app) => {
         const intUserId = parseInt(userId, 10);
         onlineUsers.set(intUserId, socket.id);
         socket.userId = intUserId;
+        socket.join(String(intUserId));
         io.emit("presence:update", { userId: intUserId, online: true });
         broadcastSnapshot();
       });
@@ -122,3 +137,4 @@ const initSocketServer = (server, app) => {
 };
 
 module.exports = initSocketServer;
+module.exports.emitToUser = emitToUser;

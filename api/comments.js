@@ -7,23 +7,29 @@ const { authenticateJWT } = require("../auth");
 router.get("/posts/:postId/comments", async (req, res) => {
   try {
     const { postId } = req.params;
-    
+
     const comments = await Comments.findAll({
       where: { post_id: postId },
       include: [
         {
           model: User,
           as: "author",
-          attributes: ["id", "username", "spotifyDisplayName", "profileImage", "avatarURL"]
-        }
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "avatarURL",
+          ],
+        },
       ],
-      order: [["created_at", "DESC"]]
+      order: [["created_at", "DESC"]],
     });
-    
+
     res.json(comments);
   } catch (error) {
-    console.error('Error fetching comments:', error);
-    res.status(500).json({ error: 'Failed to fetch comments' });
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
   }
 });
 
@@ -33,28 +39,71 @@ router.post("/posts/:postId/comments", authenticateJWT, async (req, res) => {
     const { postId } = req.params;
     const { content, parentId } = req.body;
     const userId = req.user.id;
-    
+
+    // Create the comment
     const comment = await Comments.create({
       post_id: postId,
       user_id: userId,
       content,
-      parent_id: parentId || null
+      parent_id: parentId || null,
     });
-    
+
     const createdComment = await Comments.findByPk(comment.id, {
       include: [
         {
           model: User,
           as: "author",
-          attributes: ["id", "username", "spotifyDisplayName", "profileImage", "avatarURL"]
-        }
-      ]
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
+          ],
+        },
+      ],
     });
-    
+
+    // 🔔 Notify post owner
+    const { Posts, Notification } = require("../database");
+    const post = await Posts.findByPk(postId);
+
+    if (post && post.userId !== userId) {
+      const io = req.app.get("io");
+
+      // Save notification
+      const notif = await Notification.create({
+        userId: post.userId, // recipient (post owner)
+        fromUserId: userId, // actor (commenter)
+        type: "comment",
+        postId: post.id,
+        commentId: comment.id,
+        content: comment.content,
+      });
+
+      // Enrich with actor details
+      const actor = await User.findByPk(userId, {
+        attributes: [
+          "id",
+          "username",
+          "profileImage",
+          "spotifyProfileImage",
+          "avatarURL",
+        ],
+      });
+
+      // Realtime push
+      io?.to(String(post.userId)).emit("notification:new", {
+        ...notif.toJSON(),
+        actor,
+      });
+    }
+
     res.json(createdComment);
   } catch (error) {
-    console.error('Error creating comment:', error);
-    res.status(500).json({ error: 'Failed to create comment' });
+    console.error("Error creating comment:", error);
+    res.status(500).json({ error: "Failed to create comment" });
   }
 });
 
@@ -63,22 +112,24 @@ router.delete("/:id", authenticateJWT, async (req, res) => {
   try {
     const commentId = req.params.id;
     const userId = req.user.id;
-    
+
     const deleted = await Comments.destroy({
-      where: { 
-        id: commentId, 
-        user_id: userId 
-      }
+      where: {
+        id: commentId,
+        user_id: userId,
+      },
     });
-    
+
     if (deleted === 0) {
-      return res.status(404).json({ error: "Comment not found or unauthorized" });
+      return res
+        .status(404)
+        .json({ error: "Comment not found or unauthorized" });
     }
-    
+
     res.status(204).end();
   } catch (error) {
-    console.error('Error deleting comment:', error);
-    res.status(500).json({ error: 'Failed to delete comment' });
+    console.error("Error deleting comment:", error);
+    res.status(500).json({ error: "Failed to delete comment" });
   }
 });
 
