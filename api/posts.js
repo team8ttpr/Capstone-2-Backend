@@ -1,7 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const { Posts, User, PostLike, Comments } = require("../database");
+const {
+  Posts,
+  User,
+  PostLike,
+  Comments,
+  Notification,
+} = require("../database");
 const { authenticateJWT } = require("../auth");
+const { emitToUser } = require("../socket-server");
 
 async function ensureSpotifyAccessToken(user) {
   if (!user.spotifyAccessToken && !user.spotifyRefreshToken) {
@@ -232,36 +239,45 @@ router.get("/my", authenticateJWT, async (req, res) => {
           model: User,
           as: "author",
           attributes: [
-            "id", "username", "spotifyDisplayName", "profileImage",
-            "spotifyProfileImage", "avatarURL"
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "profileImage",
+            "spotifyProfileImage",
+            "avatarURL",
           ],
         },
         {
           model: PostLike,
           as: "likes",
-          include: [{
-            model: User,
-            as: "user",
-            attributes: ["id"]
-          }]
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["id"],
+            },
+          ],
         },
         {
           model: Comments,
           as: "comments",
-          include: [{
-            model: User,
-            as: "author",
-            attributes: ["id", "username", "profileImage"]
-          }]
-        }
+          include: [
+            {
+              model: User,
+              as: "author",
+              attributes: ["id", "username", "profileImage"],
+            },
+          ],
+        },
       ],
       order: [["createdAt", "DESC"]],
     });
 
-    const postsWithLikes = posts.map(post => {
+    const postsWithLikes = posts.map((post) => {
       const postData = post.toJSON();
       postData.likesCount = postData.likes ? postData.likes.length : 0;
-      postData.isLiked = postData.likes?.some(like => like.user.id === userId) || false;
+      postData.isLiked =
+        postData.likes?.some((like) => like.user.id === userId) || false;
       postData.commentsCount = postData.comments ? postData.comments.length : 0;
       return postData;
     });
@@ -281,7 +297,9 @@ router.patch("/:id", authenticateJWT, async (req, res) => {
 
     const post = await Posts.findOne({ where: { id: postId, userId } });
     if (!post) {
-      return res.status(404).json({ error: "Post not found or not authorized" });
+      return res
+        .status(404)
+        .json({ error: "Post not found or not authorized" });
     }
 
     await post.update(updateData);
@@ -569,55 +587,80 @@ router.post("/:id/like", authenticateJWT, async (req, res) => {
     const postId = req.params.id;
     const userId = req.user.id;
 
-    const post = await Posts.findByPk(postId);
-    if (!post) {
-      return res.status(404).json({ error: "Post not found" });
-    }
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res
-        .status(401)
-        .json({ error: "User not found. Please log in again." });
-    }
-
-    const existingLike = await PostLike.findOne({
-      where: {
-        postId: postId,
-        userId: userId,
-      },
+    const post = await Posts.findByPk(postId, {
+      include: [{ model: User, as: "author" }],
     });
+    if (!post) return res.status(404).json({ error: "Post not found" });
 
+    const existingLike = await PostLike.findOne({ where: { postId, userId } });
     let isLiked;
+
     if (existingLike) {
       await existingLike.destroy();
       isLiked = false;
-    } else {
-      await PostLike.create({
-        postId: postId,
-        userId: userId,
+
+      // Optional: clean up old notification
+      await Notification.destroy({
+        where: { type: "post_liked", postId, fromUserId: userId },
       });
+    } else {
+      await PostLike.create({ postId, userId });
       isLiked = true;
+
+      // Only notify if not liking your own post
+      if (post.userId !== userId) {
+        const notif = await Notification.create({
+          userId: post.userId,
+          fromUserId: userId,
+          type: "post_liked",
+          postId,
+        });
+
+        // posts.js  (inside the LIKE branch after creating notif)
+        const actor = await User.findByPk(userId, {
+          attributes: [
+            "id",
+            "username",
+            "spotifyDisplayName",
+            "avatarURL",
+            "profileImage",
+            "spotifyProfileImage",
+          ],
+        });
+
+        emitToUser(post.userId, "notification:new", {
+          id: notif.id,
+          type: "post_liked",
+          postId,
+          seen: false,
+          createdAt: notif.createdAt,
+
+          // flat fields (what your component likely uses)
+          fromUserId: actor.id,
+          fromUsername: actor.username || actor.spotifyDisplayName || "someone",
+          fromAvatar:
+            actor.avatarURL ||
+            actor.profileImage ||
+            actor.spotifyProfileImage ||
+            null,
+
+          // nested object (mirrors the API join)
+          actor: {
+            id: actor.id,
+            username: actor.username,
+            spotifyDisplayName: actor.spotifyDisplayName,
+            avatarURL: actor.avatarURL,
+            profileImage: actor.profileImage,
+            spotifyProfileImage: actor.spotifyProfileImage,
+          },
+        });
+      }
     }
 
-    const likesCount = await PostLike.count({
-      where: { postId: postId },
-    });
-
-    res.json({
-      success: true,
-      isLiked,
-      likesCount,
-    });
-  } catch (error) {
-    console.error("Error liking post:", error);
-
-    if (error.name === "SequelizeForeignKeyConstraintError") {
-      return res
-        .status(401)
-        .json({ error: "User not found. Please log in again." });
-    }
-
+    const likesCount = await PostLike.count({ where: { postId } });
+    res.json({ success: true, isLiked, likesCount });
+  } catch (err) {
+    console.error("Error liking post:", err);
     res.status(500).json({ error: "Failed to like post" });
   }
 });
@@ -809,12 +852,10 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
         trackCount: uris.length,
       });
     } catch (trackError) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "Could not access playlist tracks. The playlist may be private or restricted.",
-        });
+      return res.status(400).json({
+        error:
+          "Could not access playlist tracks. The playlist may be private or restricted.",
+      });
     }
   } catch (err) {
     console.error("Fork playlist error:", err);

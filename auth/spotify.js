@@ -921,7 +921,7 @@ async function getGeminiPlaylist(prompt) {
   }
 }
 
-// route to generate recommendations with gemini to display on anakytics
+// route to generate recommendations with gemini to display on analytics, uses Promise.all for parallel Spotify search
 router.get(
   "/ai-recommendations",
   authenticateJWT,
@@ -941,12 +941,13 @@ router.get(
       // fetch recent tracks and top artists
       let recentTracks = [];
       let topArtists = [];
+      let topGenres = [];
       try {
         const recentTracksRes = await axios.get(
           "https://api.spotify.com/v1/me/player/recently-played",
           {
             headers: { Authorization: `Bearer ${accessToken}` },
-            params: { limit: 20 },
+            params: { limit: 50 },
           }
         );
         recentTracks = recentTracksRes.data.items || [];
@@ -956,19 +957,32 @@ router.get(
           "https://api.spotify.com/v1/me/top/artists",
           {
             headers: { Authorization: `Bearer ${accessToken}` },
-            params: { limit: 10, time_range: "medium_term" },
+            params: { limit: 50, time_range: "medium_term" },
           }
         );
         topArtists = topArtistsRes.data.items || [];
+        // Aggregate genres from top artists
+        const genreCount = {};
+        topArtists.forEach((artist) => {
+          artist.genres.forEach((genre) => {
+            genreCount[genre] = (genreCount[genre] || 0) + 1;
+          });
+        });
+        topGenres = Object.entries(genreCount)
+          .sort((a, b) => b[1] - a[1])
+          .map(([genre, count]) => genre);
       } catch {}
-      //  prompt
-      let historySummary = "";
-      if (recentTracks.length > 0 || topArtists.length > 0) {
-        historySummary = `Recent tracks: ${recentTracks.map(item => item.track.name + ' by ' + item.track.artists.map(a => a.name).join(', ')).join('; ')}. Top artists: ${topArtists.map(a => a.name).join(', ')}.`;
-      } else {
-        historySummary = "No recent listening history or top artists found.";
-      }
-      const geminiPrompt = `Based on my Spotify listening history: ${historySummary} Recommend a list of songs that match my music taste. Personalize the recommendations using my preferences, and include ONLY new tracks and no repated artist. If no history is available, suggest popular or trending songs. Return a JSON array of objects with 'song' and 'artist' fields, and only output the array.`;
+      // enhaced prompt with user data
+      const listeningHistoryStr = recentTracks.length > 0
+        ? recentTracks.map(item => `${item.track.name} by ${item.track.artists.map(a => a.name).join(', ')}`).join('; ')
+        : 'None';
+      const topArtistsStr = topArtists.length > 0
+        ? topArtists.map(a => a.name).join(', ')
+        : 'None';
+      const topGenresStr = topGenres.length > 0
+        ? topGenres.join(', ')
+        : 'None';
+      const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of AT LEAST 20 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
       let aiResponse;
       try {
         const response = await axios.post(
@@ -999,9 +1013,8 @@ router.get(
       } catch (err) {
         return res.status(500).json({ error: "Gemini recommendation error", details: err.message });
       }
-      // search the track on spotify
-      const tracks = [];
-      for (const rec of aiResponse) {
+      // search the track on spotify in parallel
+      const trackPromises = aiResponse.map(async (rec) => {
         try {
           const searchRes = await axios.get(
             "https://api.spotify.com/v1/search",
@@ -1016,12 +1029,15 @@ router.get(
           );
           const track = searchRes.data.tracks.items[0];
           if (track && track.id) {
-            tracks.push({ id: track.id, uri: track.uri, name: track.name, artist: track.artists.map(a => a.name).join(", ") });
+            return { id: track.id, uri: track.uri, name: track.name, artist: track.artists.map(a => a.name).join(", "), genre: rec.genre || null };
           }
         } catch (err) {
           // skip if not found
         }
-      }
+        return null;
+      });
+      const tracksRaw = await Promise.all(trackPromises);
+      const tracks = tracksRaw.filter(Boolean);
       res.json({ tracks });
     } catch (error) {
       res.status(500).json({ error: "Unexpected error in AI recommendations endpoint", details: error.message });
