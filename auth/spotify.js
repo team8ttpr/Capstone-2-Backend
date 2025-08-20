@@ -866,7 +866,9 @@ router.post(
       }
 
       //  send the playlist url back to the frontend
-      return res.json({ playlistUrl });
+      return res.json({ message: "We have created your playlist!!!, go to spotify to view it 👍",
+      playlistUrl
+    });
     } catch (error) {
       // catch-all error handler
       console.error("AI Playlist error:", error);
