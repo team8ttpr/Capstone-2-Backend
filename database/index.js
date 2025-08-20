@@ -89,7 +89,7 @@ UserProfileSticker.belongsTo(User, {
 });
 
 UserProfileSticker.belongsTo(Sticker, {
-  foreignKey: "sticker_id",
+  foreignKey: "stickerId",
   as: "sticker",
 });
 

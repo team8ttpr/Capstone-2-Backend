@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { cloudinary } = require('../config/cloudinary');
 const { authenticateJWT } = require('../auth');
-const { Sticker } = require('../database');
+const { User, Sticker, UserProfileSticker } = require('../database');
 const sharp = require('sharp');
 const { Op } = require('sequelize');
 
@@ -419,6 +419,230 @@ router.post('/custom/delete', authenticateJWT, async (req, res) => {
       error: 'failed to delete sticker',
       details: error.message
     });
+  }
+});
+
+// Get all stickers (presets + custom) for the logged-in user
+router.get('/profile/stickers/my', authenticateJWT, async (req, res) => {
+  try {
+    // Preset stickers from Cloudinary
+    const presetResult = await cloudinary.search
+      .expression('folder:"TTP-Capstone 2/Preset"/*')
+      .max_results(100)
+      .execute();
+    const presetStickers = presetResult.resources.map(resource => ({
+      id: resource.public_id,
+      name: resource.display_name || resource.public_id.split('/').pop(),
+      url: resource.secure_url,
+      type: 'preset',
+      width: resource.width,
+      height: resource.height,
+      format: resource.format,
+      sizeBytes: resource.bytes,
+      cloudinaryPublicId: resource.public_id,
+      createdAt: resource.created_at
+    }));
+    // Custom stickers from DB for user
+    const customStickers = await Sticker.findAll({
+      where: { type: 'custom', uploadedBy: req.user.id },
+      order: [['createdAt', 'DESC']]
+    });
+    const customStickerObjs = customStickers.map(sticker => ({
+      id: sticker.cloudinaryPublicId,
+      name: sticker.name,
+      url: sticker.url,
+      type: sticker.type,
+      width: sticker.width,
+      height: sticker.height,
+      format: sticker.format,
+      sizeBytes: sticker.sizeBytes,
+      cloudinaryPublicId: sticker.cloudinaryPublicId,
+      createdAt: sticker.createdAt
+    }));
+    res.json([...presetStickers, ...customStickerObjs]);
+  } catch (error) {
+    console.error('Error fetching my stickers:', error);
+    res.status(500).json({ error: 'Failed to fetch stickers' });
+  }
+});
+
+// Save user's sticker layout
+router.post('/profile/me/stickers', authenticateJWT, async (req, res) => {
+  // Log authenticated user
+  console.log('Authenticated user:', req.user);
+  // Log received payload
+  console.log('Received sticker placements payload:', JSON.stringify(req.body, null, 2));
+  try {
+    // Fetch user record by username
+    const userRecord = await User.findOne({ where: { username: req.user.username } });
+    if (!userRecord) {
+      return res.status(400).json({ error: 'User not found for sticker placement' });
+    }
+    const userId = userRecord.id;
+    const placements = req.body;
+    if (!Array.isArray(placements)) {
+      return res.status(400).json({ error: 'Body must be an array of sticker placements' });
+    }
+    // Remove all previous placements for this user before saving new ones
+    await UserProfileSticker.destroy({ where: { userId } });
+    // Insert new layout
+    const created = [];
+    let invalidCount = 0;
+    for (const placement of placements) {
+      // Log each placement
+      console.log('Processing placement:', placement);
+      // Try both preset and custom sticker paths
+      const presetPath = `TTP-Capstone 2/Preset/${placement.stickerId}`;
+      const customPath = `TTP-Capstone 2/Custom/${placement.stickerId}`;
+      let stickerRecord = await Sticker.findOne({ where: { cloudinaryPublicId: presetPath } });
+      if (!stickerRecord) {
+        stickerRecord = await Sticker.findOne({ where: { cloudinaryPublicId: customPath } });
+      }
+      if (!stickerRecord) {
+        // Try direct match (in case stickerId is already a full path)
+        stickerRecord = await Sticker.findOne({ where: { cloudinaryPublicId: placement.stickerId } });
+      }
+      if (!stickerRecord) {
+        // Try partial match (for legacy or fallback)
+        stickerRecord = await Sticker.findOne({ where: { cloudinaryPublicId: { [Op.like]: `%${placement.stickerId}` } } });
+      }
+      if (!userId || !stickerRecord || !stickerRecord.id) {
+        console.error('Missing userId or stickerId:', { userId, stickerId: placement.stickerId, placement });
+        invalidCount++;
+        continue; // skip invalid placement
+      }
+      // Validate positionX and positionY
+      if (typeof placement.x !== 'number' || typeof placement.y !== 'number') {
+        console.error('Invalid positionX or positionY:', { x: placement.x, y: placement.y });
+        invalidCount++;
+        continue;
+      }
+      // Validate scale, rotation, zIndex
+      if (typeof placement.scale !== 'number' || typeof placement.rotation !== 'number' || typeof placement.zIndex !== 'number') {
+        console.error('Invalid scale/rotation/zIndex:', { scale: placement.scale, rotation: placement.rotation, zIndex: placement.zIndex });
+        invalidCount++;
+        continue;
+      }
+      // Save sticker placement (no deduplication)
+      try {
+        const newSticker = await UserProfileSticker.create({
+          userId: userId,
+          stickerId: stickerRecord.id,
+          positionX: placement.x,
+          positionY: placement.y,
+          rotation: placement.rotation,
+          scale: placement.scale,
+          zIndex: placement.zIndex
+        });
+        created.push(newSticker);
+      } catch (err) {
+        console.error('Error creating sticker placement:', err);
+        invalidCount++;
+      }
+    }
+    // Log number of placements created
+    console.log(`Sticker placements created: ${created.length}, invalid: ${invalidCount}`);
+    if (created.length === 0) {
+      return res.status(400).json({ error: 'No valid sticker placements to save', invalidCount });
+    }
+    res.json({ message: 'Sticker layout saved', count: created.length, invalidCount });
+  } catch (error) {
+    console.error('Error saving sticker layout:', error);
+    res.status(500).json({ error: 'Failed to save sticker layout' });
+  }
+});
+
+// Get public user's sticker layout
+router.get('/profile/:username/stickers', async (req, res) => {
+  try {
+    const user = await User.findOne({ where: { username: req.params.username } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const placements = await UserProfileSticker.findAll({
+      where: { userId: user.id },
+      include: [{ model: Sticker, as: 'sticker' }],
+      order: [['zIndex', 'ASC']]
+    });
+    const result = placements.map(p => ({
+      stickerId: p.stickerId,
+      x: p.positionX,
+      y: p.positionY,
+      rotation: p.rotation,
+      scale: p.scale,
+      zIndex: p.zIndex,
+      imageUrl: p.sticker ? p.sticker.url : null,
+      name: p.sticker ? p.sticker.name : null,
+      type: p.sticker ? p.sticker.type : null
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching public sticker layout:', error);
+    res.status(500).json({ error: 'Failed to fetch sticker layout' });
+  }
+});
+
+// Sync all preset stickers from Cloudinary into the stickers table
+router.post('/sync-presets', async (req, res) => {
+  try {
+    const cloudinaryResult = await cloudinary.search
+      .expression('folder:"TTP-Capstone 2/Preset"/*')
+      .max_results(100)
+      .execute();
+    const presetStickers = cloudinaryResult.resources;
+    let created = 0;
+    let skipped = 0;
+    for (const resource of presetStickers) {
+      // Check if sticker already exists in DB
+      const existing = await Sticker.findOne({ where: { cloudinaryPublicId: resource.public_id } });
+      if (existing) {
+        skipped++;
+        continue;
+      }
+      // Insert new sticker
+      await Sticker.create({
+        name: resource.display_name || resource.public_id.split('/').pop(),
+        url: resource.secure_url,
+        cloudinaryPublicId: resource.public_id,
+        type: 'preset',
+        category: 'general',
+        width: resource.width,
+        height: resource.height,
+        format: resource.format,
+        sizeBytes: resource.bytes
+      });
+      created++;
+    }
+    res.json({ message: 'Preset stickers synced', created, skipped });
+  } catch (error) {
+    console.error('Error syncing preset stickers:', error);
+    res.status(500).json({ error: 'Failed to sync preset stickers', details: error.message });
+  }
+});
+
+// new: get my sticker placements
+router.get('/profile/me/stickers', authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findOne({ where: { username: req.user.username } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const placements = await UserProfileSticker.findAll({
+      where: { userId: user.id },
+      include: [{ model: Sticker, as: 'sticker' }],
+      order: [['zIndex', 'ASC']]
+    });
+    const result = placements.map(p => ({
+      stickerId: p.stickerId,
+      x: p.positionX,
+      y: p.positionY,
+      rotation: p.rotation,
+      scale: p.scale,
+      zIndex: p.zIndex,
+      imageUrl: p.sticker ? p.sticker.url : null,
+      name: p.sticker ? p.sticker.name : null,
+      type: p.sticker ? p.sticker.type : null
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching my sticker placements:', error);
+    res.status(500).json({ error: 'Failed to fetch sticker placements' });
   }
 });
 

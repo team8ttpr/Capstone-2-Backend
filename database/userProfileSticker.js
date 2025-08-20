@@ -2,6 +2,11 @@ const { DataTypes } = require("sequelize");
 const db = require("./db");
 //this is to save the layout of the user's profile stickers
 const UserProfileSticker = db.define("user_profile_sticker", {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -9,7 +14,8 @@ const UserProfileSticker = db.define("user_profile_sticker", {
     references: {
       model: 'users',
       key: 'id'
-    }
+    },
+    primaryKey: false
   },
   stickerId: {
     type: DataTypes.INTEGER,
@@ -18,7 +24,8 @@ const UserProfileSticker = db.define("user_profile_sticker", {
     references: {
       model: 'stickers',
       key: 'id'
-    }
+    },
+    primaryKey: false
   },
   positionX: {
     type: DataTypes.FLOAT,

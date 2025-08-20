@@ -692,5 +692,35 @@ router.post(
     }
   }
 );
+});
+
+// Get current user's stickers
+router.get('/me/stickers', authenticateJWT, async (req, res) => {
+  try {
+    const { UserProfileSticker, Sticker, User } = require('../database');
+    const user = await User.findOne({ where: { username: req.user.username } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const placements = await UserProfileSticker.findAll({
+      where: { userId: user.id },
+      include: [{ model: Sticker, as: 'sticker' }],
+      order: [['zIndex', 'ASC']]
+    });
+    const result = placements.map(p => ({
+      stickerId: p.stickerId,
+      x: p.positionX,
+      y: p.positionY,
+      rotation: p.rotation,
+      scale: p.scale,
+      zIndex: p.zIndex,
+      imageUrl: p.sticker ? p.sticker.url : null,
+      name: p.sticker ? p.sticker.name : null,
+      type: p.sticker ? p.sticker.type : null
+    }));
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching my sticker placements:', error);
+    res.status(500).json({ error: 'Failed to fetch sticker placements' });
+  }
+});
 
 module.exports = router;
