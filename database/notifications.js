@@ -33,6 +33,10 @@ const Notification = db.define(
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    dismissed: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
   {
     tableName: "notifications",
