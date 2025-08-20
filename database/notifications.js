@@ -14,7 +14,7 @@ const Notification = db.define(
       allowNull: false, // actor
     },
     type: {
-      type: DataTypes.ENUM("new_follower", "post_liked", "comment", "message"),
+      type: DataTypes.ENUM("new_follower", "post_liked", "comment", "message", "repost"),
       allowNull: false,
     },
     postId: {

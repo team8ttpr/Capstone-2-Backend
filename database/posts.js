@@ -33,6 +33,10 @@ const Posts = db.define(
         key: "id",
       },
     },
+    originalPostId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     spotifyId: {
       type: DataTypes.STRING,
       allowNull: true,
