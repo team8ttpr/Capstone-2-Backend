@@ -863,4 +863,66 @@ router.post("/:id/fork-playlist", authenticateJWT, async (req, res) => {
   }
 });
 
+router.post("/:id/repost", authenticateJWT, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user.id;
+
+    // Find the original post
+    const originalPost = await Posts.findByPk(postId, {
+      include: [
+        {
+          model: User,
+          as: "author",
+          attributes: ["username", "id"],
+        },
+      ],
+    });
+
+    if (!originalPost) {
+      return res.status(404).json({ error: "Original post not found" });
+    }
+
+    // Prevent reposting your own post
+    if (originalPost.userId === userId) {
+      return res.status(400).json({ error: "You cannot repost your own post" });
+    }
+
+    // Create the repost
+    const repost = await Posts.create({
+      title: originalPost.title,
+      description: `${originalPost.description}\n\n(repost of @${originalPost.author.username})`,
+      userId: userId,
+      spotifyArtistId: originalPost.spotifyArtistId,
+      spotifyTrackId: originalPost.spotifyTrackId,
+      spotifyPlaylistId: originalPost.spotifyPlaylistId,
+      spotifyAlbumId: originalPost.spotifyAlbumId,
+      spotifyArtistName: originalPost.spotifyArtistName,
+      spotifyTrackName: originalPost.spotifyTrackName,
+      spotifyPlaylistName: originalPost.spotifyPlaylistName,
+      spotifyAlbumName: originalPost.spotifyAlbumName,
+      spotifyType: originalPost.spotifyType,
+      spotifyEmbedUrl: originalPost.spotifyEmbedUrl,
+      status: "published",
+      originalPostId: originalPost.id, // optional: track repost lineage
+    });
+
+    // Optionally, notify the original author
+    if (originalPost.userId !== userId) {
+      await Notification.create({
+        userId: originalPost.userId,
+        fromUserId: userId,
+        type: "repost",
+        postId: repost.id,
+      });
+    }
+
+    res.status(201).json({ success: true, repost });
+  } catch (error) {
+    console.error("Error reposting post:", error);
+    res.status(500).json({ error: "Failed to repost" });
+  }
+});
+
+
 module.exports = router;
