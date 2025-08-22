@@ -38,6 +38,11 @@ const Message = sequelize.define("message", {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  spotifyEmbedUrl: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    field: "spotify_embed_url",
+  },
 }, {
   timestamps: true,
   tableName: "messages",

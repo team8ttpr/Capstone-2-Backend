@@ -103,10 +103,10 @@ const initSocketServer = (server, app) => {
 
       socket.on("send_message", async (data) => {
         if (!socket.userId) return;
-        const { to, content, type, fileUrl } = data;
+        const { to, content, type, fileUrl, spotifyEmbedUrl } = data;
         const from = socket.userId;
         const intTo = Number(to);
-        if (!from || !intTo || (!content && !fileUrl)) return;
+        if (!from || !intTo || (!content && !fileUrl && !spotifyEmbedUrl)) return;
 
         try {
           console.log(
@@ -128,6 +128,7 @@ const initSocketServer = (server, app) => {
             content: content || "",
             type: type || "text",
             fileUrl: fileUrl || null,
+            spotifyEmbedUrl: spotifyEmbedUrl || null,
             read: false,
           });
 

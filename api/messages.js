@@ -43,13 +43,14 @@ router.get("/:userId", authenticateJWT, async (req, res) => {
 router.post("/:userId", authenticateJWT, async (req, res) => {
   try {
     const receiverId = parseInt(req.params.userId, 10);
-    const { content } = req.body;
-    if (!content) return res.status(400).json({ error: "Message content required" });
+    const { content, spotifyEmbedUrl } = req.body;
+    if (!content && !spotifyEmbedUrl) return res.status(400).json({ error: "Message content or Spotify embed required" });
 
     const message = await Message.create({
       senderId: req.user.id,
       receiverId,
-      content,
+      content: content || "",
+      spotifyEmbedUrl,
       read: false,
     });
 
