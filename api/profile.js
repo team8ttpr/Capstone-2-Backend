@@ -36,6 +36,7 @@ router.get("/me", authenticateJWT, async (req, res) => {
         "showUsername",
         "showDateJoined",
         "showSpotifyStatus",
+        "spotifyId",
       ],
     });
 
@@ -60,6 +61,7 @@ router.get("/me", authenticateJWT, async (req, res) => {
 
     res.json({
       ...user.toJSON(),
+      isSpotifyUser: !!user.spotifyId,
       stats: {
         posts: postCount,
         followers: followersCount,
