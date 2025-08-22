@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-const { Message, Notification } = require("./database");
+const { Message, Notification, User, Post } = require("./database");
 
 let io;
 
@@ -51,7 +51,10 @@ const initSocketServer = (server, app) => {
         socket.join(intUserId);
         io.emit("presence:update", { userId: intUserId, online: true });
         broadcastSnapshot();
-        console.log("Current onlineUsers map:", Array.from(onlineUsers.entries()));
+        console.log(
+          "Current onlineUsers map:",
+          Array.from(onlineUsers.entries())
+        );
       });
 
       socket.on("test_event", (data) => {});
@@ -106,8 +109,18 @@ const initSocketServer = (server, app) => {
         if (!from || !intTo || (!content && !fileUrl)) return;
 
         try {
-          console.log("SEND_MESSAGE: from", from, "to", intTo, "content", content);
-          console.log("Current onlineUsers map:", Array.from(onlineUsers.entries()));
+          console.log(
+            "SEND_MESSAGE: from",
+            from,
+            "to",
+            intTo,
+            "content",
+            content
+          );
+          console.log(
+            "Current onlineUsers map:",
+            Array.from(onlineUsers.entries())
+          );
 
           const message = await Message.create({
             senderId: from,
@@ -127,22 +140,57 @@ const initSocketServer = (server, app) => {
               message: "You have a new message.",
               read: false,
             });
+            const notifWithActor = await Notification.findOne({
+              where: { id: notif.id },
+              include: [
+                {
+                  model: require("./database").User,
+                  as: "actor",
+                  attributes: [
+                    "id",
+                    "username",
+                    "spotifyDisplayName",
+                    "profileImage",
+                    "spotifyProfileImage",
+                    "avatarURL",
+                  ],
+                },
+              ],
+            });
             const recipientSocketId = onlineUsers.get(intTo);
             if (recipientSocketId) {
-              io.to(recipientSocketId).emit("notification:new", notif.toJSON());
-              console.log("Emitted notification:new to", intTo, "socket:", recipientSocketId);
+              io.to(recipientSocketId).emit(
+                "notification:new",
+                notifWithActor.toJSON()
+              );
+              console.log(
+                "Emitted notification:new to",
+                intTo,
+                "socket:",
+                recipientSocketId
+              );
             } else {
               console.log("No recipient socket found for notification", intTo);
             }
           }
 
           const recipientSocketId = onlineUsers.get(intTo);
-          console.log("Emitting receive_message to", intTo, "socket:", recipientSocketId);
+          console.log(
+            "Emitting receive_message to",
+            intTo,
+            "socket:",
+            recipientSocketId
+          );
           if (recipientSocketId) {
             io.to(recipientSocketId).emit("receive_message", {
               ...message.toJSON(),
             });
-            console.log("Emitted receive_message to", intTo, "socket:", recipientSocketId);
+            console.log(
+              "Emitted receive_message to",
+              intTo,
+              "socket:",
+              recipientSocketId
+            );
           } else {
             console.log("No recipient socket found for", intTo);
           }
@@ -152,6 +200,152 @@ const initSocketServer = (server, app) => {
           });
         } catch (err) {
           console.error("Error in send_message:", err);
+        }
+      });
+
+      // Live comment notification
+      socket.on("send_comment_notification", async (data) => {
+        // data: { postOwnerId, commenterId, postId, commentText }
+        const { postOwnerId, commenterId, postId, commentText } = data;
+        if (!postOwnerId || !commenterId || !postId) return;
+        try {
+          const notif = await Notification.create({
+            userId: postOwnerId,
+            type: "comment",
+            fromUserId: commenterId,
+            postId: postId,
+            content: commentText,
+            read: false,
+          });
+          const notifWithActor = await Notification.findOne({
+            where: { id: notif.id },
+            include: [
+              {
+                model: require("./database").User,
+                as: "actor",
+                attributes: [
+                  "id",
+                  "username",
+                  "spotifyDisplayName",
+                  "profileImage",
+                  "spotifyProfileImage",
+                  "avatarURL",
+                ],
+              },
+            ],
+          });
+          const recipientSocketId = onlineUsers.get(Number(postOwnerId));
+          if (recipientSocketId) {
+            io.to(recipientSocketId).emit(
+              "notification:new",
+              notifWithActor.toJSON()
+            );
+            console.log(
+              "Emitted comment notification:new to",
+              postOwnerId,
+              "socket:",
+              recipientSocketId
+            );
+          }
+        } catch (err) {
+          console.error("Error in send_comment_notification:", err);
+        }
+      });
+
+      // Live repost notification
+      socket.on("send_repost_notification", async (data) => {
+        // data: { postOwnerId, reposterId, postId }
+        const { postOwnerId, reposterId, postId } = data;
+        if (!postOwnerId || !reposterId || !postId) return;
+        try {
+          const notif = await Notification.create({
+            userId: postOwnerId,
+            type: "repost",
+            fromUserId: reposterId,
+            postId: postId,
+            message: "Your post was reposted.",
+            read: false,
+          });
+          const notifWithActor = await Notification.findOne({
+            where: { id: notif.id },
+            include: [
+              {
+                model: require("./database").User,
+                as: "actor",
+                attributes: [
+                  "id",
+                  "username",
+                  "spotifyDisplayName",
+                  "profileImage",
+                  "spotifyProfileImage",
+                  "avatarURL",
+                ],
+              },
+            ],
+          });
+          const recipientSocketId = onlineUsers.get(Number(postOwnerId));
+          if (recipientSocketId) {
+            io.to(recipientSocketId).emit(
+              "notification:new",
+              notifWithActor.toJSON()
+            );
+            console.log(
+              "Emitted repost notification:new to",
+              postOwnerId,
+              "socket:",
+              recipientSocketId
+            );
+          }
+        } catch (err) {
+          console.error("Error in send_repost_notification:", err);
+        }
+      });
+
+      // Live follow notification
+      socket.on("send_follow_notification", async (data) => {
+        // data: { followedUserId, followerId }
+        const { followedUserId, followerId } = data;
+        if (!followedUserId || !followerId) return;
+        try {
+          const notif = await Notification.create({
+            userId: followedUserId,
+            type: "new_follower",
+            fromUserId: followerId,
+            message: "You have a new follower.",
+            read: false,
+          });
+          const notifWithActor = await Notification.findOne({
+            where: { id: notif.id },
+            include: [
+              {
+                model: require("./database").User,
+                as: "actor",
+                attributes: [
+                  "id",
+                  "username",
+                  "spotifyDisplayName",
+                  "profileImage",
+                  "spotifyProfileImage",
+                  "avatarURL",
+                ],
+              },
+            ],
+          });
+          const recipientSocketId = onlineUsers.get(Number(followedUserId));
+          if (recipientSocketId) {
+            io.to(recipientSocketId).emit(
+              "notification:new",
+              notifWithActor.toJSON()
+            );
+            console.log(
+              "Emitted follow notification:new to",
+              followedUserId,
+              "socket:",
+              recipientSocketId
+            );
+          }
+        } catch (err) {
+          console.error("Error in send_follow_notification:", err);
         }
       });
 
