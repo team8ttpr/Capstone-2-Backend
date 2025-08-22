@@ -179,7 +179,7 @@ router.get("/feed", async (req, res) => {
   }
 });
 
-router.get("/", async (req, res) => {
+router.get("/", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user?.id;
 
@@ -345,7 +345,7 @@ router.get("/draft", authenticateJWT, async (req, res) => {
 });
 
 // Get single post by ID
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticateJWT, async (req, res) => {
   try {
     const postId = req.params.id;
     const userId = req.user?.id;
@@ -387,6 +387,8 @@ router.get("/:id", async (req, res) => {
     postData.isLiked = userId
       ? postData.likes?.some((like) => like.user.id === userId)
       : false;
+
+    console.log("API /posts/:id", { userId, likes: postData.likes, isLiked: postData.isLiked });
 
     res.json(postData);
   } catch (error) {
