@@ -8,6 +8,7 @@ const PostLike = require("./postLikes");
 const Comments = require("./comments");
 const Message = require("./messages");
 const Notification = require("./notifications");
+const ManualOnboardRequests = require("./manualOnboard");
 
 User.hasMany(Posts, {
   foreignKey: "userId",
@@ -179,4 +180,5 @@ module.exports = {
   Comments,
   Message,
   Notification,
+  ManualOnboardRequests,
 };
