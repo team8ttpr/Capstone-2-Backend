@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const { User } = require("../database");
+const { ManualOnboardRequests } = require("../database");
 const { authenticateJWT } = require("./index");
 
 const router = express.Router();
@@ -380,6 +381,26 @@ router.post("/callback", authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error("Spotify callback error:", error.message);
     res.status(500).json({ error: "Failed to connect Spotify" });
+  }
+});
+
+router.post("/manual-onboard", async (req, res) => {
+  try {
+    const { name, email, spotifyEmail, notes } = req.body;
+    if (!spotifyEmail) {
+      return res.status(400).json({ error: "Spotify email is required" });
+    }
+    await ManualOnboardRequests.create({
+      name,
+      email,
+      spotifyEmail,
+      notes,
+      createdAt: new Date(),
+    });
+    res.json({ message: "Request received. We'll be in touch soon!" });
+  } catch (err) {
+    console.error("Manual onboard error:", err);
+    res.status(500).json({ error: "Failed to store request" });
   }
 });
 
