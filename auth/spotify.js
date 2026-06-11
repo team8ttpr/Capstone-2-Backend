@@ -712,7 +712,7 @@ router.get(
       // Aggregate genres from top artists
       const genreCount = {};
       topArtists.forEach((artist) => {
-        artist.genres.forEach((genre) => {
+        (artist.genres || []).forEach((genre) => {
           genreCount[genre] = (genreCount[genre] || 0) + 1;
         });
       });
@@ -724,7 +724,7 @@ router.get(
       // Rank top artists by genre
       const artistsByGenre = {};
       topArtists.forEach((artist) => {
-        artist.genres.forEach((genre) => {
+        (artist.genres || []).forEach((genre) => {
           if (!artistsByGenre[genre]) artistsByGenre[genre] = [];
           artistsByGenre[genre].push({
             id: artist.id,
@@ -985,7 +985,7 @@ router.get(
         // Aggregate genres from top artists
         const genreCount = {};
         topArtists.forEach((artist) => {
-          artist.genres.forEach((genre) => {
+          (artist.genres || []).forEach((genre) => {
             genreCount[genre] = (genreCount[genre] || 0) + 1;
           });
         });
