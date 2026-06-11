@@ -52,14 +52,15 @@ app.use((err, req, res, next) => {
 });
 
 const runApp = async () => {
+  // Listen immediately so cold starts aren't blocked waiting on the DB sync
+  server.listen(PORT, () => {
+    console.log(`🚀 API + WebSockets running on port ${PORT}`);
+  });
   try {
-    await db.sync();
-    console.log("✅ Connected to the database");
-    await db.sync({ alter: true });
+    // alter: true introspects every table on boot — too slow for production
+    const alter = process.env.NODE_ENV !== "production";
+    await db.sync({ alter });
     console.log("✅ Database synced successfully");
-    server.listen(PORT, () => {
-      console.log(`🚀 API + WebSockets running on port ${PORT}`);
-    });
   } catch (err) {
     console.error("❌ Unable to connect to the database:", err);
   }
