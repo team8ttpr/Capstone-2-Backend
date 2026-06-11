@@ -20,6 +20,74 @@ const cookieSettings = {
   path: "/",
 };
 
+// --- Lightweight per-day in-memory cache, keyed by `${type}:${userId}`. Used to
+// avoid hammering external APIs (Last.fm, Gemini) on every dashboard load. ---
+const dailyCache = new Map();
+const todayKey = () => new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+const cacheGet = (type, userId) => {
+  const entry = dailyCache.get(`${type}:${userId}`);
+  return entry && entry.date === todayKey() ? entry.value : null;
+};
+const cacheSet = (type, userId, value) => {
+  dailyCache.set(`${type}:${userId}`, { date: todayKey(), value });
+};
+
+// --- Genre fallback: Spotify stopped populating the `genres` field on artist
+// objects, so when it's empty we look genres up on Last.fm. Requires a free
+// LASTFM_API_KEY; without it this no-ops and the UI shows an empty state. ---
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY;
+const lastfmGenresForArtist = async (name) => {
+  if (!LASTFM_API_KEY || !name) return [];
+  try {
+    const res = await axios.get("https://ws.audioscrobbler.com/2.0/", {
+      params: {
+        method: "artist.gettoptags",
+        artist: name,
+        api_key: LASTFM_API_KEY,
+        format: "json",
+        autocorrect: 1,
+      },
+      timeout: 8000,
+    });
+    const tags = res.data?.toptags?.tag || [];
+    return tags
+      .filter((t) => Number(t.count) >= 10) // drop noisy low-weight tags
+      .slice(0, 3)
+      .map((t) => String(t.name).toLowerCase());
+  } catch {
+    return [];
+  }
+};
+
+// --- Gemini call with retry/backoff on 429 (rate limit). Returns the raw text. ---
+const callGemini = async (prompt, { retries = 3 } = {}) => {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await axios.post(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        { contents: [{ parts: [{ text: prompt }] }] },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-goog-api-key": process.env.GEMINI_API_KEY,
+          },
+          timeout: 20000,
+        }
+      );
+      return response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    } catch (err) {
+      lastErr = err;
+      if (err.response?.status === 429 && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+};
+
 // middlewares/requireSpotifyAuth.js
 async function requireSpotifyAuth(req, res, next) {
   try {
@@ -709,35 +777,54 @@ router.get(
         });
       }
 
-      // Aggregate genres from top artists
-      const genreCount = {};
-      topArtists.forEach((artist) => {
-        (artist.genres || []).forEach((genre) => {
-          genreCount[genre] = (genreCount[genre] || 0) + 1;
-        });
-      });
-      // Sort genres by count
-      const topGenres = Object.entries(genreCount)
-        .sort((a, b) => b[1] - a[1])
-        .map(([genre, count]) => ({ genre, count }));
-
-      // Rank top artists by genre
-      const artistsByGenre = {};
-      topArtists.forEach((artist) => {
-        (artist.genres || []).forEach((genre) => {
-          if (!artistsByGenre[genre]) artistsByGenre[genre] = [];
-          artistsByGenre[genre].push({
-            id: artist.id,
-            name: artist.name,
-            popularity: artist.popularity,
-            images: artist.images,
+      // Build topGenres + artistsByGenre from a per-artist genre list.
+      const buildGenreMaps = (artistsWithGenres) => {
+        const genreCount = {};
+        const byGenre = {};
+        artistsWithGenres.forEach(({ artist, genres }) => {
+          (genres || []).forEach((genre) => {
+            genreCount[genre] = (genreCount[genre] || 0) + 1;
+            if (!byGenre[genre]) byGenre[genre] = [];
+            byGenre[genre].push({
+              id: artist.id,
+              name: artist.name,
+              popularity: artist.popularity,
+              images: artist.images,
+            });
           });
         });
-      });
-      // Sort artists in each genre by popularity
-      Object.keys(artistsByGenre).forEach((genre) => {
-        artistsByGenre[genre].sort((a, b) => b.popularity - a.popularity);
-      });
+        Object.keys(byGenre).forEach((g) =>
+          byGenre[g].sort((a, b) => b.popularity - a.popularity)
+        );
+        const genres = Object.entries(genreCount)
+          .sort((a, b) => b[1] - a[1])
+          .map(([genre, count]) => ({ genre, count }));
+        return { topGenres: genres, artistsByGenre: byGenre };
+      };
+
+      // Primary source: Spotify's own genres (now usually empty).
+      let { topGenres, artistsByGenre } = buildGenreMaps(
+        topArtists.map((artist) => ({ artist, genres: artist.genres }))
+      );
+
+      // Fallback: Spotify returned no genres -> derive them from Last.fm.
+      if (topGenres.length === 0 && LASTFM_API_KEY && topArtists.length > 0) {
+        const cached = cacheGet("genres", user.id);
+        if (cached) {
+          ({ topGenres, artistsByGenre } = cached);
+        } else {
+          const subset = topArtists.slice(0, 15);
+          const tagLists = await Promise.all(
+            subset.map((a) => lastfmGenresForArtist(a.name))
+          );
+          const built = buildGenreMaps(
+            subset.map((artist, i) => ({ artist, genres: tagLists[i] }))
+          );
+          topGenres = built.topGenres;
+          artistsByGenre = built.artistsByGenre;
+          if (topGenres.length) cacheSet("genres", user.id, built);
+        }
+      }
 
       res.json({
         recentTracks: recentTracks.map((item) => ({
@@ -959,6 +1046,12 @@ router.get(
       } catch (tokenError) {
         return res.status(401).json({ error: "Spotify token error", details: tokenError.message });
       }
+
+      // Recommendations of the *day*: reuse today's result so we don't re-call
+      // Gemini (and burn quota) on every dashboard load.
+      const cachedRecs = cacheGet("recs", user.id);
+      if (cachedRecs) return res.json(cachedRecs);
+
       // fetch recent tracks and top artists
       let recentTracks = [];
       let topArtists = [];
@@ -1004,35 +1097,17 @@ router.get(
         ? topGenres.join(', ')
         : 'None';
       const geminiPrompt = `You are an expert music recommender. Here is the user's Spotify data:\nListening history: ${listeningHistoryStr}\nTop artists: ${topArtistsStr}\nTop genres: ${topGenresStr}\nBased on this data, recommend a list of AT LEAST 20 less known or underground songs that the user is likely to enjoy but may not have listened to yet. Personalize the recommendations using the provided listening history, artists, and genres, and avoid repeated artists. For each song, return a JSON object with 'song', 'artist', and 'genre' fields. Only output the array.`;
-      let aiResponse;
+      let aiResponse = [];
       try {
-        const response = await axios.post(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-          {
-            contents: [
-              {
-                parts: [
-                  { text: geminiPrompt }
-                ]
-              }
-            ]
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "X-goog-api-key": process.env.GEMINI_API_KEY
-            }
-          }
-        );
-        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        const text = await callGemini(geminiPrompt);
         const match = text.match(/\[.*\]/s);
-        if (match) {
-          aiResponse = JSON.parse(match[0]);
-        } else {
-          aiResponse = [];
-        }
+        if (match) aiResponse = JSON.parse(match[0]);
       } catch (err) {
-        return res.status(500).json({ error: "Gemini recommendation error", details: err.message });
+        // Rate-limited (429) or otherwise unavailable. Serve a stale cached set
+        // if we have one, else an empty list the UI presents gracefully.
+        const stale = cacheGet("recs", user.id);
+        if (stale) return res.json(stale);
+        return res.json({ tracks: [], unavailable: true });
       }
       // search the track on spotify in parallel
       const trackPromises = aiResponse.map(async (rec) => {
@@ -1059,7 +1134,9 @@ router.get(
       });
       const tracksRaw = await Promise.all(trackPromises);
       const tracks = tracksRaw.filter(Boolean);
-      res.json({ tracks });
+      const payload = { tracks };
+      if (tracks.length) cacheSet("recs", user.id, payload);
+      res.json(payload);
     } catch (error) {
       res.status(500).json({ error: "Unexpected error in AI recommendations endpoint", details: error.message });
     }
